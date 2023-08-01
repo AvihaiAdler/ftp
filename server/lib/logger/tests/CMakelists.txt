@@ -1,0 +1,31 @@
+set(LOGGER_UNIT_TESTS logger_sanity)
+
+foreach(TEST ${LOGGER_UNIT_TESTS})
+  
+  add_executable(${TEST} ${TEST}.c)
+  add_test(NAME ${TEST} COMMAND ${PROJECT_BINARY_DIR}/lib/logger/tests/${TEST})
+
+  target_compile_features(${TEST}
+    PRIVATE c_std_11
+  )
+
+  target_compile_options(${TEST} 
+    PRIVATE 
+    -Wall 
+    -Wextra 
+    -pedantic 
+    -O3 
+    -g 
+    -fsanitize=address,undefined
+  )
+
+  target_link_options(${TEST} 
+    PRIVATE 
+    -fsanitize=address,undefined
+  )
+
+  target_link_libraries(${TEST} 
+    PRIVATE logger
+  )
+
+endforeach()

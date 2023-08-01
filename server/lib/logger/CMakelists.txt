@@ -1,0 +1,33 @@
+add_library(logger)
+
+target_sources(logger
+  PRIVATE src/logger.c
+)
+
+target_compile_features(logger
+  PRIVATE c_std_11
+)
+
+target_compile_options(logger
+  PRIVATE
+  -Wall
+  -Wextra
+  -Wpedantic
+  -O3
+  -g
+)
+
+find_library(threads
+  NAMES pthread
+  REQUIRED
+)
+
+target_link_libraries(logger
+  PUBLIC ${threads}
+)
+
+target_include_directories(logger
+  PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+
+add_subdirectory(tests)
