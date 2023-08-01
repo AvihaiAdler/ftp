@@ -46,12 +46,12 @@ void dbm_statement_destroy(sqlite3_stmt *restrict statement);
  * multiple times
  *
  * @param[in] statement - the statement to execute
- * @param[in] callback - a function to process the returned data. said function will be called for each column in a
- * returned row. the function accepts:
+ * @param[in] callback - a function to process the returned data. may be `NULL`. said function will be called for each
+ * column in a returned row. the function accepts:
  *    @param[out] arg - an object to copy data into
  *    @param[in] col_name - the column name
  *    @param[in] col_data - the data in said column
- * @param[out] arg - the object to place data into
+ * @param[out] arg - the object to place data into. may be `NULL`
  * @param[in] args_count - the number of arguments to bind. one should make sure `args_count` matches the amount of
  * placeholders in the query
  * @param[in] ... - a list of parameters to bind to the statement (all params must be of type `char const *`)

@@ -42,9 +42,9 @@ static void process_row(sqlite3_stmt *restrict statement,
                         void *restrict arg) {
   size_t cols_count = sqlite3_column_count(statement);
 
-  for (size_t i = 0; i < cols_count; i++) {
+  for (size_t i = 0; i < cols_count; i += 2) {
     unsigned char const *col_name = sqlite3_column_text(statement, i);
-    unsigned char const *col_data = sqlite3_column_text(statement, i);
+    unsigned char const *col_data = sqlite3_column_text(statement, i + 1);
 
     callback(arg, (char const *)col_name, (char const *)col_data);
   }
@@ -70,7 +70,9 @@ static int dbm_statement_query_internal(sqlite3_stmt *restrict statement,
   int step_ret = SQLITE_DONE;
   do {
     step_ret = sqlite3_step(statement);
-    if (step_ret == SQLITE_ROW) { process_row(statement, callback, arg); }
+    if (step_ret == SQLITE_ROW) {
+      if (callback) { process_row(statement, callback, arg); }
+    }
   } while (step_ret != SQLITE_DONE);
 
   int ret = sqlite3_reset(statement);
@@ -89,7 +91,7 @@ int dbm_statement_query(sqlite3_stmt *restrict statement,
                         void *restrict arg,
                         size_t args_count,
                         ...) {
-  if (!statement || !callback) { return SQLITE_ERROR; }
+  if (!statement) { return SQLITE_ERROR; }
 
   va_list args;
   va_start(args, args_count);
@@ -106,7 +108,6 @@ int dbm_query(sqlite3 *restrict db,
               size_t args_count,
               ...) {
   if (!db) { return SQLITE_NOTADB; }
-  if (!callback) { return SQLITE_ERROR; }
 
   sqlite3_stmt *statement = dbm_statement_prepare(db, query, -1);
   if (!statement) { return SQLITE_ERROR; }
