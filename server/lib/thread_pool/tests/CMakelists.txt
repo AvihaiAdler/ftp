@@ -1,33 +1,36 @@
 set(THREADPOOL_UNIT_TESTS thread_pool_sanity)
 
-foreach(TEST ${THREADPOOL_UNIT_TESTS})
+foreach(test ${THREADPOOL_UNIT_TESTS})
   
-  add_executable(${TEST} ${TEST}.c)
-  add_test(NAME ${TEST} COMMAND ${PROJECT_BINARY_DIR}/lib/thread_pool/tests/${TEST})
+  add_executable(${test})
+  target_sources(${test}
+    PRIVATE ${test}.c
+  )
 
-  target_compile_features(${TEST}
+  add_test(NAME ${test} COMMAND $<TARGET_FILE:${test}>)
+
+  target_compile_features(${test}
     PRIVATE c_std_11
   )
 
-  target_compile_options(${TEST} 
+  target_compile_options(${test} 
     PRIVATE 
     -Wall 
     -Wextra 
     -Wpedantic 
-    -O3
+    -Og
     -g
     -fsanitize=address,undefined
   )
 
-  target_link_options(${TEST} 
+  target_link_options(${test} 
     PRIVATE 
     -fsanitize=address,undefined
   )
 
-  target_link_libraries(${TEST} 
-    PRIVATE 
-    thread_pool 
-    logger
+  target_link_libraries(${test} 
+    PRIVATE thread_pool 
+    PRIVATE logger
   )
 
 endforeach()
