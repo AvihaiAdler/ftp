@@ -2,14 +2,10 @@
 #include <stdarg.h>
 
 sqlite3 *dbm_open(char const *restrict db_name) {
-  int flags = SQLITE_READONLY;
-  if (!db_name) {
-    db_name = ":memory:";
-    flags |= SQLITE_OPEN_MEMORY;
-  }
+  if (!db_name) { db_name = ":memory:"; }
 
   sqlite3 *db = NULL;
-  int ret = sqlite3_open_v2(db_name, &db, flags, NULL);
+  int ret = sqlite3_open(db_name, &db);
   if (ret != SQLITE_OK) { return NULL; }
 
   return db;
