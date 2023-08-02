@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(ds VERSION 0.0.1)
+project(ds VERSION 0.1.0)
 
 add_library(ds)
 
@@ -21,7 +21,7 @@ target_compile_features(ds
 
 set(compile_flags "")
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-  set(compile_flags -Wall -Wextra -pedantic -O3)
+  set(compile_flags -Wall -Wextra -Wpedantic -O3 -g)
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Windows")
   set(compile_flags -W4)
 endif()
