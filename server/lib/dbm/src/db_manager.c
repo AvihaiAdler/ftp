@@ -14,8 +14,9 @@ static void destroy_str(void *ascii_str) {
   ascii_str_destroy((struct ascii_str *)ascii_str);
 }
 
-static void destroy_vec(void *vec) {
-  vec_destroy(vec);
+static void destroy_vec(void *vec_ptr) {
+  struct vec **vec = vec_ptr;
+  vec_destroy(*vec);
 }
 
 sqlite3 *dbm_open(char const *restrict db_name) {
@@ -76,6 +77,10 @@ static struct vec *dbm_process_row_internal(sqlite3_stmt *restrict statement) {
   return row_data;
 }
 
+static bool dbm_statement_cleanup_internal(sqlite3_stmt *restrict statement) {
+  return (sqlite3_reset(statement) | sqlite3_clear_bindings(statement)) == SQLITE_OK;
+}
+
 struct hash_table *dbm_statement_query_internal(sqlite3_stmt *restrict statement, size_t args_count, va_list args) {
   for (size_t i = 0; i < args_count; i++) {
     if (sqlite3_bind_text(statement, i + 1, va_arg(args, char const *), -1, SQLITE_STATIC) != SQLITE_OK) {
@@ -85,7 +90,10 @@ struct hash_table *dbm_statement_query_internal(sqlite3_stmt *restrict statement
   }
 
   struct hash_table *ht = table_init(cmpr, NULL, destroy_vec);
-  if (!ht) { return NULL; }
+  if (!ht) {
+    (void)dbm_statement_cleanup_internal(statement);
+    return NULL;
+  }
 
   // execute query
   int step = SQLITE_OK;
@@ -93,25 +101,19 @@ struct hash_table *dbm_statement_query_internal(sqlite3_stmt *restrict statement
     step = sqlite3_step(statement);
 
     // populate ht
-    if (step == SQLITE_ROW) {
-      struct vec *row_data = dbm_process_row_internal(statement);
-      if (!row_data) {
-        if (ht) table_destroy(ht);
-        return NULL;
-      }
+    if (step != SQLITE_ROW) continue;
 
-      (void)table_put(ht, &i, sizeof i, &row_data, sizeof row_data);
+    struct vec *row_data = dbm_process_row_internal(statement);
+    if (!row_data) {
+      (void)dbm_statement_cleanup_internal(statement);
+      table_destroy(ht);
+      return NULL;
     }
+
+    (void)table_put(ht, &i, sizeof i, &row_data, sizeof row_data);
   }
 
-  int ret = sqlite3_reset(statement);
-  if (ret != SQLITE_OK) {
-    table_destroy(ht);
-    return NULL;
-  }
-
-  ret = sqlite3_clear_bindings(statement);
-  if (ret != SQLITE_OK) {
+  if (!dbm_statement_cleanup_internal(statement)) {
     table_destroy(ht);
     return NULL;
   }
@@ -144,7 +146,7 @@ struct hash_table *dbm_query(sqlite3 *restrict db,
 
   dbm_statement_destroy(statement);
 
-  if (!ht && status) *status = SQLITE_ERROR;
+  if (status) { *status = ht ? SQLITE_OK : SQLITE_ERROR; }
   return ht;
 }
 
@@ -159,7 +161,7 @@ struct hash_table *dbm_statement_query(sqlite3_stmt *restrict statement, int *st
   struct hash_table *ht = dbm_statement_query_internal(statement, args_count, args);
   va_end(args);
 
-  if (!ht && status) *status = SQLITE_ERROR;
+  if (status) { *status = ht ? SQLITE_OK : SQLITE_ERROR; }
   return ht;
 }
 
