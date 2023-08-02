@@ -127,7 +127,7 @@ size_t vec_reserve(struct vec *vec, size_t count);
  *
  * if `num_elements` > `vec::capacity`: the result will be as-if `vec_reserve` was called, followed by `vec_resize`.
  *
- * if  `vec::size` <= `num_elements` < `vec::capacity`: `vec::size` will be set to `num_elements` and
+ * if `vec::size` <= `num_elements` < `vec::capacity`: `vec::size` will be set to `num_elements` and
  * `vec::capacity` - `vec::size` `NULL` values will be pushed into the `vec` (in other words - `vec::size` will increase
  * to match `num_elements` and the 'emtpy' values will be `0` initialized).
  *

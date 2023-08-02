@@ -76,7 +76,7 @@ size_t table_capacity(struct hash_table *table);
  * @param[in] value the value
  * @param[in] value_size the size of the `value` in bytes
  *
- * @return `void *` - a pointer to a copy of the old `value` which has to be free'd intependently. if no such `key`
+ * @return `void *` - a pointer to a copy of the old `value` which has to be free'd independently. if no such `key`
  * exists - `NULL` will be returned
  */
 void *table_put(struct hash_table *table, void const *key, size_t key_size, void const *value, size_t value_size);
@@ -92,10 +92,6 @@ void *table_put(struct hash_table *table, void const *key, size_t key_size, void
  * exists - `NULL` will be returned
  */
 void *table_remove(struct hash_table *table, void const *key, size_t key_size);
-
-/* returns the mapping for a specific key if present or NULL if there was no
- * mapping for that key. the value must not be free'd. key_size - the size of
- * key in bytes */
 
 /**
  * @brief returns the mapping for a specific `key`
