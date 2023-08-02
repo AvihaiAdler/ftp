@@ -254,15 +254,15 @@ void *list_remove_at(struct list *list, size_t pos) {
 }
 
 size_t list_index_of(struct list *list, const void *data, int (*cmpr)(const void *, const void *)) {
-  if (!list) return GENERICS_EINVAL;
-  if (!cmpr) return GENERICS_EINVAL;
-  if (!list->head) return GENERICS_EINVAL;
+  if (!list) return DS_EINVAL;
+  if (!cmpr) return DS_EINVAL;
+  if (!list->head) return DS_EINVAL;
 
   size_t pos = 0;
   for (struct node *tmp = list->head; tmp; tmp = tmp->next, pos++) {
     if (cmpr(tmp->data, data) == 0) return pos;
   }
-  return GENERICS_EINVAL;
+  return DS_EINVAL;
 }
 
 void *list_replace_at(struct list *list, const void *data, size_t data_size, size_t pos) {

@@ -188,7 +188,7 @@ void vec_index_of_sanity_test(int *arr, size_t arr_size) {
   size_t index = vec_index_of(vect, &arr[arr_size / 2], cmpr);
 
   // then
-  assert(index != GENERICS_EINVAL);
+  assert(index != DS_EINVAL);
   assert(index == arr_size / 2);
 
   // cleanup

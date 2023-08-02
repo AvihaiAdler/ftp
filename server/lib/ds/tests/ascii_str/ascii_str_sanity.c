@@ -277,7 +277,7 @@ static void ascii_str_index_of_non_existing_char_test(char const *str, char cons
   size_t ret = ascii_str_index_of(&ascii_str, c);
 
   // then
-  assert(ret == GENERICS_EINVAL);
+  assert(ret == DS_EINVAL);
 
   // cleanup
   ascii_str_destroy(&ascii_str);

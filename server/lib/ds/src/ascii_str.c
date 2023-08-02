@@ -240,11 +240,11 @@ bool ascii_str_contains(struct ascii_str *haystack, char const *needle) {
 }
 
 size_t ascii_str_index_of(struct ascii_str *ascii_str, char const c) {
-  if (!ascii_str) return GENERICS_EINVAL;
+  if (!ascii_str) return DS_EINVAL;
 
   char const *buf = ascii_str_c_str(ascii_str);
   char const *needle = strchr(buf, c);
-  return needle ? (size_t)(needle - buf) : GENERICS_EINVAL;
+  return needle ? (size_t)(needle - buf) : DS_EINVAL;
 }
 
 struct ascii_str ascii_str_substr(struct ascii_str *ascii_str, size_t from_pos, size_t count) {

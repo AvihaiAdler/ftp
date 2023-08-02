@@ -210,7 +210,7 @@ size_t vec_index_of(struct vec *vec, const void *element, int (*cmpr)(const void
     if (cmpr(element, (char *)vec->data + i) == 0) return i / vec->data_size;
   }
 
-  return GENERICS_EINVAL;
+  return DS_EINVAL;
 }
 
 void vec_sort(struct vec *vec, int (*cmpr)(const void *, const void *)) {

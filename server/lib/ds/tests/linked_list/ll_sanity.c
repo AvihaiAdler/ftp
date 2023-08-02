@@ -193,7 +193,7 @@ void list_remove_first_test(struct point *points, size_t arr_size) {
   assert(list_size(list) == arr_size - 1);
   assert(equals(removed, &points[0]));
   assert(equals(list_peek_first(list), &points[1]));
-  assert(list_index_of(list, removed, cmpr) == GENERICS_EINVAL);
+  assert(list_index_of(list, removed, cmpr) == DS_EINVAL);
 
   // cleanup
   free(removed);
@@ -211,7 +211,7 @@ void list_remove_last_test(struct point *points, size_t arr_size) {
   assert(list_size(list) == arr_size - 1);
   assert(equals(list_peek_last(list), &points[arr_size - 2]));
   assert(equals(removed, &points[arr_size - 1]));
-  assert(list_index_of(list, removed, cmpr) == GENERICS_EINVAL);
+  assert(list_index_of(list, removed, cmpr) == DS_EINVAL);
 
   // cleaup
   free(removed);
@@ -229,7 +229,7 @@ void list_remove_at_test(struct point *points, size_t arr_size) {
   assert(removed);
   assert(list_size(list) == arr_size - 1);
   assert(equals(removed, &points[arr_size / 2]));
-  assert(list_index_of(list, removed, cmpr) == GENERICS_EINVAL);
+  assert(list_index_of(list, removed, cmpr) == DS_EINVAL);
 
   // cleanup
   free(removed);
