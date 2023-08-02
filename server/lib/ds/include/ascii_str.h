@@ -45,7 +45,7 @@ void ascii_str_destroy(struct ascii_str *ascii_str);
  * @return true if the object is an empty string
  * @return false otherwise
  */
-bool ascii_str_empty(struct ascii_str *ascii_str);
+bool ascii_str_empty(struct ascii_str const *ascii_str);
 
 /**
  * @brief returns the length of an ascii_str
@@ -54,7 +54,7 @@ bool ascii_str_empty(struct ascii_str *ascii_str);
  * @return the number of bytes in the string. for ascii string that would be equal to the number of characters in the
  * string *excluding* the null terminator
  */
-size_t ascii_str_len(struct ascii_str *ascii_str);
+size_t ascii_str_len(struct ascii_str const *ascii_str);
 
 /**
  * @brief returns a const pointer to the underlying data

@@ -2,6 +2,7 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 
 struct ascii_str_long {
   size_t size;
@@ -18,6 +19,11 @@ struct ascii_str {
   union {
     struct ascii_str_long long_;
     struct ascii_str_short short_;
-  } str_internal;
+  };
   bool is_sso;
+
+// add padding for systems with alignment requirement of 8. assumes sizeof(size_t) == 8 ofc
+#if UINTPTR_MAX == UINT64_MAX
+  char padding_[4];
+#endif
 };
