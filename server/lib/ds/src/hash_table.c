@@ -295,7 +295,7 @@ void *table_remove(struct hash_table *table, void const *key, size_t key_size) {
   if (!entry) return NULL;
 
   struct node *removed = entry_contains(entry, key, table->cmpr);
-  if (!removed) return NULL;  // the table doesn't contains the key key
+  if (!removed) return NULL;  // the table doesn't contains the key `key`
 
   // the node is the only node in the entry
   if (!removed->next && !removed->prev) {
