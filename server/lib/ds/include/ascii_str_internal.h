@@ -2,7 +2,6 @@
 
 #include <stdbool.h>
 #include <stddef.h>
-#include <stdint.h>
 
 struct ascii_str_long {
   size_t size;
@@ -22,8 +21,6 @@ struct ascii_str {
   };
   bool is_sso;
 
-// add padding for systems with alignment requirement of 8. assumes sizeof(size_t) == 8 ofc
-#if UINTPTR_MAX == UINT64_MAX
-  char padding_[4];
-#endif
+  // add padding for systems with alignment requirement of 8. assumes sizeof(void *) != sizeof(bool)
+  char padding_[sizeof(void *) - sizeof(bool)];
 };
