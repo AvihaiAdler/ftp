@@ -26,7 +26,9 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "Windows")
   set(compile_flags -W4)
 endif()
 
-target_compile_options(ds PRIVATE ${compile_flags})
+target_compile_options(ds 
+  PRIVATE ${compile_flags}
+)
 
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
   include(CTest)
