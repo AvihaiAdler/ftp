@@ -87,22 +87,25 @@ void *table_put(struct hash_table *table, void const *key, size_t key_size, void
  * @param[in] table a hash table object
  * @param[in] key the desired `key` to remove
  * @param[in] key_size the size of the `key` in bytes
+ * @param[out] value a pointer to a `value` type. the returned value will be placed there
+ * @param[in] value_size the size of the `value` type
  *
- * @return `void *` - a pointer to a copy of the old `value` which has to be free'd intependently if no such `key`
- * exists - `NULL` will be returned
+ * @return `size_t` - `0` on success, `DS_EINVAL` on failure
  */
-void *table_remove(struct hash_table *table, void const *key, size_t key_size);
+size_t table_remove(struct hash_table *table, void const *key, size_t key_size, void *value, size_t value_size);
 
 /**
  * @brief returns the mapping for a specific `key`
  *
- * this function should be used with care as any changes to `value` will change its data. moreover, certain operation on
- * the returned pointer might corrupt other key-values' data.
+ * this function should be used with care as changes to `value` will change its data if said `value` is a pointer type.
+ * moreover.
  *
  * @param[in] table a hash table object
  * @param[in] key the desired `key`
  * @param[in] key_size the size of the `key` in bytes
+ * @param[out] value a pointer to a `value` type. the returned value will be placed there
+ * @param[in] value_size the size of the `value` type
  *
- * @return `void *` - a pointer the `value` associated with key `key`. the pointer must not be free'd
+ * @return `size_t` - `0` on success, `DS_EINVAL` on failure
  */
-void *table_get(struct hash_table *table, void const *key, size_t key_size);
+size_t table_get(struct hash_table *table, void const *key, size_t key_size, void *value, size_t value_size);

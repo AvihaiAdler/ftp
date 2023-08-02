@@ -160,8 +160,9 @@ void table_put_with_resize_test(size_t size) {
   // then
   assert(table_capacity(table) > TABLE_INIT_CAPACITY);
   for (size_t i = 0; i < size; i++) {
-    struct string *str = table_get(table, keys[i], strlen(keys[i]) + 1);
-    if (str) assert(cmpr_values(str, &strings[i]) == 0);
+    struct string str = {0};
+    size_t ret = table_get(table, keys[i], strlen(keys[i]) + 1, &str, sizeof str);
+    if (ret == 0) assert(cmpr_values(&str, &strings[i]) == 0);
   }
 
   // cleanup
@@ -177,21 +178,23 @@ void table_remove_test(char **keys, size_t keys_size, struct string *strings, si
   size_t old_size = table_size(table);
 
   // when
-  struct string *first = table_remove(table, keys[0], strlen(keys[0]) + 1);
-  struct string *last = table_remove(table, keys[keys_size - 1], strlen(keys[keys_size - 1]) + 1);
-  struct string *mid = table_remove(table, keys[keys_size / 2], strlen(keys[keys_size / 2]) + 1);
+  struct string first = {0};
+  size_t ret = table_remove(table, keys[0], strlen(keys[0]) + 1, &first, sizeof first);
+  assert(ret != DS_EINVAL);
+
+  struct string last = {0};
+  ret = table_remove(table, keys[keys_size - 1], strlen(keys[keys_size - 1]) + 1, &last, sizeof last);
+  assert(ret != DS_EINVAL);
+
+  struct string mid = {0};
+  ret = table_remove(table, keys[keys_size / 2], strlen(keys[keys_size / 2]) + 1, &mid, sizeof mid);
+  assert(ret != DS_EINVAL);
 
   // then
-  assert(first && last && mid);
   assert(table_size(table) < old_size);
-  assert(cmpr_values(first, &strings[0]) == 0);
-  assert(cmpr_values(last, &strings[strings_size - 1]) == 0);
-  assert(cmpr_values(mid, &strings[strings_size / 2]) == 0);
-
-  // cleanup
-  free(first);
-  free(last);
-  free(mid);
+  assert(cmpr_values(&first, &strings[0]) == 0);
+  assert(cmpr_values(&last, &strings[strings_size - 1]) == 0);
+  assert(cmpr_values(&mid, &strings[strings_size / 2]) == 0);
 
   after(table);
 }
@@ -201,11 +204,12 @@ void table_get_test(char **keys, size_t keys_size, struct string *strings, size_
   struct hash_table *table = before(keys, keys_size, strings, strings_size);
 
   // when
-  struct string *val = table_get(table, keys[0], strlen(keys[0]) + 1);
+  struct string val = {0};
+  size_t ret = table_get(table, keys[0], strlen(keys[0]) + 1, &val, sizeof val);
 
   // then
-  assert(val);
-  assert(cmpr_values(val, &strings[0]) == 0);
+  assert(ret != DS_EINVAL);
+  assert(cmpr_values(&val, &strings[0]) == 0);
 
   // cleanup
   after(table);

@@ -285,17 +285,20 @@ void *table_put(struct hash_table *table, void const *key, size_t key_size, void
   return NULL;
 }
 
-void *table_remove(struct hash_table *table, void const *key, size_t key_size) {
-  if (!table) return NULL;
-  if (!table->entries) return NULL;
-  if (!key && !key_size) return NULL;
+size_t table_remove(struct hash_table *table, void const *key, size_t key_size, void *value, size_t value_size) {
+  if (!table) return DS_EINVAL;
+  if (!table->entries) return DS_EINVAL;
+  if (!key || !key_size) return DS_EINVAL;
+  if (!value || !value_size) return DS_EINVAL;
 
   size_t pos = hash(key, key_size) % table->capacity;
   struct entry *entry = vec_at(table->entries, pos);
-  if (!entry) return NULL;
+  if (!entry) return DS_EINVAL;
 
   struct node *removed = entry_contains(entry, key, table->cmpr);
-  if (!removed) return NULL;  // the table doesn't contains the key `key`
+  if (!removed) return DS_EINVAL;  // the table doesn't contains the key `key`
+
+  if (removed->value_size != value_size) return DS_EINVAL;
 
   // the node is the only node in the entry
   if (!removed->next && !removed->prev) {
@@ -311,27 +314,32 @@ void *table_remove(struct hash_table *table, void const *key, size_t key_size) {
     removed->next->prev = removed->prev;
   }
 
-  void *old_value = removed->value;
+  memcpy(value, removed->value, value_size);
 
   if (table->destroy_key) { table->destroy_key(removed->key); }
   free(removed->key);
+  free(removed->value);
   free(removed);
   table->num_of_elements--;
 
-  return old_value;
+  return 0;
 }
 
-void *table_get(struct hash_table *table, void const *key, size_t key_size) {
-  if (!table) return NULL;
-  if (!table->entries) return NULL;
-  if (!key && !key_size) return NULL;
+size_t table_get(struct hash_table *table, void const *key, size_t key_size, void *value, size_t value_size) {
+  if (!table) return DS_EINVAL;
+  if (!table->entries) return DS_EINVAL;
+  if (!key || !key_size) return DS_EINVAL;
+  if (!value || !value_size) return DS_EINVAL;
 
   size_t pos = hash(key, key_size) % table->capacity;
   struct entry *entry = vec_at(table->entries, pos);
-  if (!entry) return NULL;
+  if (!entry) return DS_EINVAL;
 
   struct node *looked_for = entry_contains(entry, key, table->cmpr);
-  if (!looked_for) return NULL;
+  if (!looked_for) return DS_EINVAL;
 
-  return looked_for->value;
+  if (value_size != looked_for->value_size) return DS_EINVAL;
+
+  memcpy(value, looked_for->value, value_size);
+  return 0;
 }
