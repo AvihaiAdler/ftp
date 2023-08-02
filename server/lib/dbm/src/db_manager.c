@@ -1,5 +1,22 @@
 #include "db_manager.h"
 #include <stdarg.h>
+#include <string.h>
+#include "vec.h"
+
+static int cmpr(void const *left_, void const *right_) {
+  size_t const *left = left_;
+  size_t const *right = right_;
+
+  return *left > *right - *left < *right;
+}
+
+static void destroy_str(void *ascii_str) {
+  ascii_str_destroy((struct ascii_str *)ascii_str);
+}
+
+static void destroy_vec(void *vec) {
+  vec_destroy(vec);
+}
 
 sqlite3 *dbm_open(char const *restrict db_name) {
   if (!db_name) { db_name = ":memory:"; }
@@ -17,9 +34,9 @@ void dbm_destroy(sqlite3 *restrict db) {
   sqlite3_close(db);
 }
 
-sqlite3_stmt *dbm_statement_prepare(sqlite3 *restrict db, char const *restrict query, size_t query_size) {
-  if (!db || !query) { return NULL; }
-
+static sqlite3_stmt *dbm_statement_prepare_internal(sqlite3 *restrict db,
+                                                    char const *restrict query,
+                                                    size_t query_size) {
   sqlite3_stmt *statement = NULL;
 
   // while sqlite3_prepare_v3 with the flag SQLITE_PREPARE_PERSISTENT will be more suitable for other applications -
@@ -29,10 +46,121 @@ sqlite3_stmt *dbm_statement_prepare(sqlite3 *restrict db, char const *restrict q
   return statement;
 }
 
+sqlite3_stmt *dbm_statement_prepare(sqlite3 *restrict db, struct ascii_str *restrict query) {
+  if (!db || !query) { return NULL; }
+  return dbm_statement_prepare_internal(db, ascii_str_c_str(query), ascii_str_len(query));
+}
+
 void dbm_statement_destroy(sqlite3_stmt *restrict statement) {
   if (!statement) return;
 
   sqlite3_finalize(statement);
+}
+
+static struct vec *dbm_process_row_internal(sqlite3_stmt *restrict statement) {
+  struct vec *row_data = vec_init(sizeof(struct ascii_str), destroy_str);
+  if (!row_data) return NULL;
+
+  size_t col_count = sqlite3_column_count(statement);
+
+  // even numbers correspond to column names and thus ignored
+  for (size_t i = 1; i < col_count; i += 2) {
+    struct ascii_str col_data = ascii_str_from_str((char const *)sqlite3_column_text(statement, i));
+
+    if (!vec_push(row_data, &col_data)) {
+      if (row_data) vec_destroy(row_data);
+      return NULL;
+    }
+  }
+
+  return row_data;
+}
+
+struct hash_table *dbm_statement_query_internal(sqlite3_stmt *restrict statement, size_t args_count, va_list args) {
+  for (size_t i = 0; i < args_count; i++) {
+    if (sqlite3_bind_text(statement, i + 1, va_arg(args, char const *), -1, SQLITE_STATIC) != SQLITE_OK) {
+      sqlite3_clear_bindings(statement);
+      return NULL;
+    }
+  }
+
+  struct hash_table *ht = table_init(cmpr, NULL, destroy_vec);
+  if (!ht) { return NULL; }
+
+  // execute query
+  int step = SQLITE_OK;
+  for (size_t i = 0; step != SQLITE_DONE; i++) {
+    step = sqlite3_step(statement);
+
+    // populate ht
+    if (step == SQLITE_ROW) {
+      struct vec *row_data = dbm_process_row_internal(statement);
+      if (!row_data) {
+        if (ht) table_destroy(ht);
+        return NULL;
+      }
+
+      (void)table_put(ht, &i, sizeof i, &row_data, sizeof row_data);
+    }
+  }
+
+  int ret = sqlite3_reset(statement);
+  if (ret != SQLITE_OK) {
+    table_destroy(ht);
+    return NULL;
+  }
+
+  ret = sqlite3_clear_bindings(statement);
+  if (ret != SQLITE_OK) {
+    table_destroy(ht);
+    return NULL;
+  }
+
+  return ht;
+}
+
+struct hash_table *dbm_query(sqlite3 *restrict db,
+                             int *restrict status,
+                             struct ascii_str *restrict query,
+                             size_t args_count,
+                             ...) {
+  if (!db) {
+    if (status) *status = SQLITE_NOTADB;
+    return NULL;
+  }
+
+  if (!query) { return NULL; }
+
+  sqlite3_stmt *statement = dbm_statement_prepare(db, query);
+  if (!statement) {
+    if (status) *status = SQLITE_ERROR;
+    return NULL;
+  }
+
+  va_list args;
+  va_start(args, args_count);
+  struct hash_table *ht = dbm_statement_query_internal(statement, args_count, args);
+  va_end(args);
+
+  dbm_statement_destroy(statement);
+
+  if (!ht && status) *status = SQLITE_ERROR;
+  return ht;
+}
+
+struct hash_table *dbm_statement_query(sqlite3_stmt *restrict statement, int *status, size_t args_count, ...) {
+  if (!statement) {
+    if (status) *status = SQLITE_MISUSE;
+    return NULL;
+  }
+
+  va_list args;
+  va_start(args, args_count);
+  struct hash_table *ht = dbm_statement_query_internal(statement, args_count, args);
+  va_end(args);
+
+  if (!ht && status) *status = SQLITE_ERROR;
+  return ht;
 }
 
 static void process_row(sqlite3_stmt *restrict statement,
@@ -50,13 +178,13 @@ static void process_row(sqlite3_stmt *restrict statement,
   }
 }
 
-static int dbm_statement_query_internal(sqlite3_stmt *restrict statement,
-                                        void (*callback)(void *restrict arg,
-                                                         char const *restrict col_name,
-                                                         char const *restrict col_data),
-                                        void *restrict arg,
-                                        size_t args_count,
-                                        va_list args) {
+static int dbm_statement_query_internal2(sqlite3_stmt *restrict statement,
+                                         void (*callback)(void *restrict arg,
+                                                          char const *restrict col_name,
+                                                          char const *restrict col_data),
+                                         void *restrict arg,
+                                         size_t args_count,
+                                         va_list args) {
   // bind the args to the query
   for (size_t i = 0; i < args_count; i++) {
     char const *curr = va_arg(args, char const *);
@@ -84,37 +212,38 @@ static int dbm_statement_query_internal(sqlite3_stmt *restrict statement,
   return SQLITE_OK;
 }
 
-int dbm_statement_query(sqlite3_stmt *restrict statement,
-                        void (*callback)(void *restrict arg,
-                                         char const *restrict col_name,
-                                         char const *restrict col_data),
-                        void *restrict arg,
-                        size_t args_count,
-                        ...) {
+int dbm_statement_query2(sqlite3_stmt *restrict statement,
+                         void (*callback)(void *restrict arg,
+                                          char const *restrict col_name,
+                                          char const *restrict col_data),
+                         void *restrict arg,
+                         size_t args_count,
+                         ...) {
   if (!statement) { return SQLITE_ERROR; }
 
   va_list args;
   va_start(args, args_count);
-  int ret = dbm_statement_query_internal(statement, callback, arg, args_count, args);
+  int ret = dbm_statement_query_internal2(statement, callback, arg, args_count, args);
   va_end(args);
 
   return ret;
 }
 
-int dbm_query(sqlite3 *restrict db,
-              void (*callback)(void *restrict arg, char const *restrict col_name, char const *restrict col_data),
-              void *restrict arg,
-              char const *restrict query,
-              size_t args_count,
-              ...) {
+int dbm_query2(sqlite3 *restrict db,
+               void (*callback)(void *restrict arg, char const *restrict col_name, char const *restrict col_data),
+               void *restrict arg,
+               char const *restrict query,
+               size_t args_count,
+               ...) {
   if (!db) { return SQLITE_NOTADB; }
+  if (!query) { return SQLITE_MISUSE; }
 
-  sqlite3_stmt *statement = dbm_statement_prepare(db, query, -1);
+  sqlite3_stmt *statement = dbm_statement_prepare_internal(db, query, -1);
   if (!statement) { return SQLITE_ERROR; }
 
   va_list args;
   va_start(args, args_count);
-  dbm_statement_query_internal(statement, callback, arg, args_count, args);
+  dbm_statement_query_internal2(statement, callback, arg, args_count, args);
   va_end(args);
 
   dbm_statement_destroy(statement);

@@ -19,6 +19,7 @@ target_compile_options(dbm
 
 target_link_libraries(dbm
   PUBLIC sqlite
+  PUBLIC ds
 )
 
 target_include_directories(dbm

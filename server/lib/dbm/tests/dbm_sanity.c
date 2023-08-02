@@ -8,12 +8,12 @@
 #define STRINGIFY(TYPE, SIZE) #TYPE STRINGIFY_SIZE(SIZE)
 
 static void test_create_table(sqlite3 *restrict db) {
-  int ret = dbm_query(db,
-                      NULL,
-                      NULL,
-                      "CREATE TABLE IF NOT EXISTS " TABLE_NAME
-                      " (id " STRINGIFY(VARCHAR, SIZE) ", data " STRINGIFY(VARCHAR, SIZE) ")",
-                      0);
+  int ret = dbm_query2(db,
+                       NULL,
+                       NULL,
+                       "CREATE TABLE IF NOT EXISTS " TABLE_NAME
+                       " (id " STRINGIFY(VARCHAR, SIZE) ", data " STRINGIFY(VARCHAR, SIZE) ")",
+                       0);
 
   if (ret != SQLITE_OK) { fprintf(stderr, "%s : %d\t%s\n", __func__, __LINE__, sqlite3_errstr(ret)); }
 
@@ -21,7 +21,7 @@ static void test_create_table(sqlite3 *restrict db) {
 }
 
 static void test_insert_values(sqlite3 *restrict db) {
-  int ret = dbm_query(db, NULL, NULL, "INSERT INTO " TABLE_NAME " VALUES (?, ?)", 2, "1", "hello");
+  int ret = dbm_query2(db, NULL, NULL, "INSERT INTO " TABLE_NAME " VALUES (?, ?)", 2, "1", "hello");
   if (ret != SQLITE_OK) { fprintf(stderr, "%s : %d\t%s\n", __func__, __LINE__, sqlite3_errstr(ret)); }
 
   assert(ret == SQLITE_OK);
@@ -33,7 +33,7 @@ static void process_row(void *restrict arg, char const *restrict col_name, char 
 }
 
 static void test_select(sqlite3 *restrict db) {
-  int ret = dbm_query(db, process_row, NULL, "SELECT * FROM " TABLE_NAME, 0);
+  int ret = dbm_query2(db, process_row, NULL, "SELECT * FROM " TABLE_NAME, 0);
 
   assert(ret == SQLITE_OK);
 }
