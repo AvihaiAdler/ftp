@@ -66,7 +66,7 @@ static struct vec *dbm_process_row_internal(sqlite3_stmt *restrict statement) {
 
   // even numbers correspond to column names and thus ignored
   for (size_t i = 1; i < col_count; i += 2) {
-    struct ascii_str col_data = ascii_str_from_str((char const *)sqlite3_column_text(statement, i));
+    struct ascii_str col_data = ascii_str_create((char const *)sqlite3_column_text(statement, i), STR_C_STR);
 
     if (!vec_push(row_data, &col_data)) {
       if (row_data) vec_destroy(row_data);
