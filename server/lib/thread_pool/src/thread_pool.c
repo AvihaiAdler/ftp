@@ -45,7 +45,7 @@ static void cleanup(struct thread_pool *thread_pool, bool tasks_mtx, bool tasks_
 
   if (thread_pool->threads) free(thread_pool->threads);
 
-  if (thread_pool->tasks) list_destroy(thread_pool->tasks, thread_pool->destroy_task);
+  list_destroy(&thread_pool->tasks);
 
   if (tasks_mtx) mtx_destroy(&thread_pool->tasks_mtx);
 
@@ -54,7 +54,7 @@ static void cleanup(struct thread_pool *thread_pool, bool tasks_mtx, bool tasks_
   free(thread_pool);
 }
 
-struct thread_pool *thread_pool_init(uint8_t num_of_threads, void (*destroy_task)(void *task)) {
+struct thread_pool *thread_pool_create(uint8_t num_of_threads, void (*destroy_task)(void *task)) {
   if (num_of_threads == 0) return NULL;
 
   struct thread_pool *thread_pool = calloc(1, sizeof *thread_pool);
@@ -70,11 +70,7 @@ struct thread_pool *thread_pool_init(uint8_t num_of_threads, void (*destroy_task
   }
 
   // init tasks
-  thread_pool->tasks = list_init();
-  if (!thread_pool->tasks) {
-    cleanup(thread_pool, false, false);
-    return NULL;
-  }
+  thread_pool->tasks = list_create(destroy_task);
 
   // init mutex
   if (mtx_init(&thread_pool->tasks_mtx, mtx_plain) != thrd_success) {
@@ -88,18 +84,16 @@ struct thread_pool *thread_pool_init(uint8_t num_of_threads, void (*destroy_task
     return NULL;
   }
 
-  thread_pool->destroy_task = destroy_task;
-
   // creates the threads
   for (uint8_t i = 0; i < num_of_threads; i++) {
     struct thread_args *thread_args = calloc(1, sizeof *thread_args);
     if (!thread_args) cleanup(thread_pool, true, true);
 
-    thread_args->tasks = thread_pool->tasks;
+    thread_args->tasks = &thread_pool->tasks;
     thread_args->tasks_mtx = &thread_pool->tasks_mtx;
     thread_args->tasks_cnd = &thread_pool->tasks_cnd;
     thread_args->self = &thread_pool->threads[i];
-    thread_args->destroy_task = thread_pool->destroy_task;
+    thread_args->destroy_task = destroy_task;
 
     atomic_init(&thread_pool->threads[i].terminate, false);
 
@@ -138,7 +132,7 @@ bool thread_pool_add_task(struct thread_pool *restrict thread_pool, struct task 
 
   if (mtx_lock(&thread_pool->tasks_mtx) == thrd_error) { return false; }
 
-  bool ret = list_append(thread_pool->tasks, task, sizeof *task);
+  bool ret = list_append(&thread_pool->tasks, task, sizeof *task);
 
   // wakeup all threads
   if (ret) cnd_broadcast(&thread_pool->tasks_cnd);

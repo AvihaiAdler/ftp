@@ -15,8 +15,8 @@ static void destroy_str(void *ascii_str) {
 }
 
 static void destroy_vec(void *vec_ptr) {
-  struct vec **vec = vec_ptr;
-  vec_destroy(*vec);
+  struct vec *vec = vec_ptr;
+  vec_destroy(vec);
 }
 
 sqlite3 *dbm_open(char const *restrict db_name) {
@@ -58,9 +58,8 @@ void dbm_statement_destroy(sqlite3_stmt *restrict statement) {
   sqlite3_finalize(statement);
 }
 
-static struct vec *dbm_process_row_internal(sqlite3_stmt *restrict statement) {
-  struct vec *row_data = vec_init(sizeof(struct ascii_str), destroy_str);
-  if (!row_data) return NULL;
+static struct vec dbm_process_row_internal(sqlite3_stmt *restrict statement) {
+  struct vec row_data = vec_create(sizeof(struct ascii_str), destroy_str);
 
   size_t col_count = sqlite3_column_count(statement);
 
@@ -68,10 +67,7 @@ static struct vec *dbm_process_row_internal(sqlite3_stmt *restrict statement) {
   for (size_t i = 1; i < col_count; i += 2) {
     struct ascii_str col_data = ascii_str_create((char const *)sqlite3_column_text(statement, i), STR_C_STR);
 
-    if (!vec_push(row_data, &col_data)) {
-      if (row_data) vec_destroy(row_data);
-      return NULL;
-    }
+    (void)vec_push(&row_data, &col_data);
   }
 
   return row_data;
@@ -81,19 +77,21 @@ static bool dbm_statement_cleanup_internal(sqlite3_stmt *restrict statement) {
   return (sqlite3_reset(statement) | sqlite3_clear_bindings(statement)) == SQLITE_OK;
 }
 
-struct hash_table *dbm_statement_query_internal(sqlite3_stmt *restrict statement, size_t args_count, va_list args) {
+static size_t hash(void const *key, size_t size) {
+  (void)size;
+  size_t const *_key = key;
+  return *_key;
+}
+
+struct hash_table dbm_statement_query_internal(sqlite3_stmt *restrict statement, size_t args_count, va_list args) {
   for (size_t i = 0; i < args_count; i++) {
     if (sqlite3_bind_text(statement, i + 1, va_arg(args, char const *), -1, SQLITE_STATIC) != SQLITE_OK) {
       sqlite3_clear_bindings(statement);
-      return NULL;
+      goto statement_empty_table;
     }
   }
 
-  struct hash_table *ht = table_init(cmpr, NULL, destroy_vec);
-  if (!ht) {
-    (void)dbm_statement_cleanup_internal(statement);
-    return NULL;
-  }
+  struct hash_table ht = table_create(sizeof(size_t), sizeof(struct vec), cmpr, hash, NULL, destroy_vec);
 
   // execute query
   int step = SQLITE_OK;
@@ -103,65 +101,74 @@ struct hash_table *dbm_statement_query_internal(sqlite3_stmt *restrict statement
     // populate ht
     if (step != SQLITE_ROW) continue;
 
-    struct vec *row_data = dbm_process_row_internal(statement);
-    if (!row_data) {
+    struct vec row_data = dbm_process_row_internal(statement);
+    if (vec_empty(&row_data)) {
       (void)dbm_statement_cleanup_internal(statement);
-      table_destroy(ht);
-      return NULL;
+      table_destroy(&ht);
+      goto statement_empty_table;
     }
 
-    (void)table_put(ht, &i, sizeof i, &row_data, sizeof row_data);
+    (void)table_put(&ht, &i, &row_data, NULL);
   }
 
   if (!dbm_statement_cleanup_internal(statement)) {
-    table_destroy(ht);
-    return NULL;
+    table_destroy(&ht);
+    goto statement_empty_table;
   }
 
   return ht;
+
+statement_empty_table:
+  return (struct hash_table){0};
 }
 
-struct hash_table *dbm_query(sqlite3 *restrict db,
-                             int *restrict status,
-                             struct ascii_str *restrict query,
-                             size_t args_count,
-                             ...) {
+struct hash_table dbm_query(sqlite3 *restrict db,
+                            int *restrict status,
+                            struct ascii_str *restrict query,
+                            size_t args_count,
+                            ...) {
   if (!db) {
     if (status) *status = SQLITE_NOTADB;
-    return NULL;
+    goto query_empty_table;
   }
 
-  if (!query) { return NULL; }
+  if (!query) {
+    if (status) *status = SQLITE_ERROR;
+    goto query_empty_table;
+  }
 
   sqlite3_stmt *statement = dbm_statement_prepare(db, query);
   if (!statement) {
     if (status) *status = SQLITE_ERROR;
-    return NULL;
+    goto query_empty_table;
   }
 
   va_list args;
   va_start(args, args_count);
-  struct hash_table *ht = dbm_statement_query_internal(statement, args_count, args);
+  struct hash_table ht = dbm_statement_query_internal(statement, args_count, args);
   va_end(args);
 
   dbm_statement_destroy(statement);
 
-  if (status) { *status = ht ? SQLITE_OK : SQLITE_ERROR; }
+  if (status) *status = SQLITE_OK;
   return ht;
+
+query_empty_table:
+  return (struct hash_table){0};
 }
 
-struct hash_table *dbm_statement_query(sqlite3_stmt *restrict statement, int *status, size_t args_count, ...) {
+struct hash_table dbm_statement_query(sqlite3_stmt *restrict statement, int *status, size_t args_count, ...) {
   if (!statement) {
     if (status) *status = SQLITE_MISUSE;
-    return NULL;
+    return (struct hash_table){0};
   }
 
   va_list args;
   va_start(args, args_count);
-  struct hash_table *ht = dbm_statement_query_internal(statement, args_count, args);
+  struct hash_table ht = dbm_statement_query_internal(statement, args_count, args);
   va_end(args);
 
-  if (status) { *status = ht ? SQLITE_OK : SQLITE_ERROR; }
+  if (status) { *status = table_empty(&ht) ? SQLITE_OK : SQLITE_ERROR; }
   return ht;
 }
 

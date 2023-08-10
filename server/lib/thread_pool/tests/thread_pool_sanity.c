@@ -36,7 +36,7 @@ int main(void) {
   struct logger *logger = logger_init("threads_pool_test.bin");
   assert(logger);
 
-  struct thread_pool *thread_pool = thread_pool_init(20, destroy_task);
+  struct thread_pool *thread_pool = thread_pool_create(20, destroy_task);
   assert(thread_pool);
 
   logger_log(logger, INFO, "test start");

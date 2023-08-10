@@ -59,7 +59,7 @@ void dbm_statement_destroy(sqlite3_stmt *restrict statement);
  * consist of a `struct vec *` holding `struct ascii_str`s.
  * in cpp terms: `map<size_t, vector<std::string>> dbm_statement_query(...);`
  */
-struct hash_table *dbm_statement_query(sqlite3_stmt *restrict statement, int *restrict status, size_t args_count, ...);
+struct hash_table dbm_statement_query(sqlite3_stmt *restrict statement, int *restrict status, size_t args_count, ...);
 
 /**
  * @brief same as `dbm_statement_query` execpt that this function calls `dbm_statement_prepare` follows by
@@ -75,11 +75,11 @@ struct hash_table *dbm_statement_query(sqlite3_stmt *restrict statement, int *re
  * consist of a `struct vec *` holding `struct ascii_str`s.
  * in cpp terms: `map<size_t, vector<std::string>> dbm_query(...);`
  */
-struct hash_table *dbm_query(sqlite3 *restrict db,
-                             int *restrict status,
-                             struct ascii_str *restrict query,
-                             size_t args_count,
-                             ...);
+struct hash_table dbm_query(sqlite3 *restrict db,
+                            int *restrict status,
+                            struct ascii_str *restrict query,
+                            size_t args_count,
+                            ...);
 
 /**
  * @brief binds parameters and executes a query

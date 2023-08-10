@@ -17,8 +17,7 @@ struct thread_pool {
   struct thread *threads;
   uint8_t num_of_threads;
 
-  void (*destroy_task)(void *task);
-  struct list *tasks;  // treated as a queue. FIFO
+  struct list tasks;  // treated as a queue. FIFO
   mtx_t tasks_mtx;
   cnd_t tasks_cnd;
 };

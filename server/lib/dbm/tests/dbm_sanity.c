@@ -22,50 +22,48 @@ static void test_create_table(sqlite3 *restrict db) {
   int ret = 0;
   struct ascii_str query = ascii_str_from_str(QUERY_CREATE);
 
-  struct hash_table *ht = dbm_query(db, &ret, &query, 0);
+  struct hash_table ht = dbm_query(db, &ret, &query, 0);
 
   assert(ret == SQLITE_OK);
-  assert(table_empty(ht));
+  assert(table_empty(&ht));
 
   ascii_str_destroy(&query);
-  table_destroy(ht);
+  table_destroy(&ht);
 }
 
 static void test_insert_values(sqlite3 *restrict db, char const *restrict col_name, char const *restrict col_data) {
   int ret = 0;
   struct ascii_str query = ascii_str_from_str(QUERY_INSERT);
 
-  struct hash_table *ht = dbm_query(db, &ret, &query, 2, col_name, col_data);
+  struct hash_table ht = dbm_query(db, &ret, &query, 2, col_name, col_data);
 
   assert(ret == SQLITE_OK);
-  assert(table_empty(ht));
+  assert(table_empty(&ht));
 
   ascii_str_destroy(&query);
-  table_destroy(ht);
+  table_destroy(&ht);
 }
 
 static void test_select_all(sqlite3 *restrict db, char const *restrict data) {
   int ret = 0;
   struct ascii_str query = ascii_str_from_str(QUERY_SELECT_ALL);
 
-  struct hash_table *ht = dbm_query(db, &ret, &query, 0);
+  struct hash_table ht = dbm_query(db, &ret, &query, 0);
 
   assert(ret == SQLITE_OK);
-  assert(ht);
-  assert(!table_empty(ht));
+  assert(!table_empty(&ht));
 
   size_t row = 0;
-  struct vec *row_data = NULL;
+  struct vec row_data = {0};
 
-  size_t get_ret = table_get(ht, &row, sizeof row, &row_data, sizeof row_data);
-  assert(row_data);
-  assert(get_ret != DS_EINVAL);
-  assert(!vec_empty(row_data));
+  enum ds_error get_ret = table_get(&ht, &row, &row_data);
+  assert(get_ret == DS_VALUE_OK);
+  assert(!vec_empty(&row_data));
 
-  assert(strcmp(data, ascii_str_c_str((struct ascii_str *)vec_pop(row_data))) == 0);
+  assert(strcmp(data, ascii_str_c_str((struct ascii_str *)vec_pop(&row_data))) == 0);
 
   ascii_str_destroy(&query);
-  table_destroy(ht);
+  table_destroy(&ht);
 }
 
 static void test_create_table2(sqlite3 *restrict db) {

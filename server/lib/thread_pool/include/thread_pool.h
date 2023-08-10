@@ -19,7 +19,7 @@ struct task {
  * (which must be a reasonable amount). return struct thread_pool * on success,
  * or NULL on failure. expects destroy_task, a function which takes in a struct task and free its underlying task::args.
  * destroy_task shold never free the task itsef */
-struct thread_pool *thread_pool_init(uint8_t num_of_threads, void (*destroy_task)(void *task));
+struct thread_pool *thread_pool_create(uint8_t num_of_threads, void (*destroy_task)(void *task));
 
 /* destroys a thread_pool object */
 void thread_pool_destroy(struct thread_pool *restrict thread_pool);
