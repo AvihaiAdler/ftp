@@ -82,6 +82,7 @@ void logger_log(struct logger *restrict logger, enum level level, char const *re
   va_end(args);
 
   fprintf(logger->stream, "\n");
+
   mtx_unlock(&logger->stream_mtx);  // assume never fails
 }
 
