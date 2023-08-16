@@ -1,7 +1,8 @@
 add_library(util)
 
 target_sources(util
-  PRIVATE src/algorithm.c
+  PRIVATE
+  src/algorithm.c
 )
 
 target_compile_features(util
@@ -19,4 +20,8 @@ target_compile_options(util
 
 target_include_directories(util
   PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+
+target_link_libraries(util
+  PRIVATE ds
 )
