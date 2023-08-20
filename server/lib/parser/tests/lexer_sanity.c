@@ -20,7 +20,9 @@ static char const *token_type_name(enum token_type type) {
       return "EOF";
     case TT_INT:
       return "INT";
-    case TT_PUNC:
+    case TT_COMMA:
+      return "COMMA";
+    case TT_PUNCT:
       return "PUNCTUATION";
     case TT_SPACE:
       return "SPACE";
@@ -84,7 +86,7 @@ static void lexer_string_with_punctuations_test(struct logger *logger,
   size_t _punct_count = 0;
   for (void *iter = vec_iter_begin(&tokens); iter != vec_iter_end(&tokens); iter = vec_iter_next(&tokens, iter)) {
     struct token *t = iter;
-    if (t->type == TT_PUNC) _punct_count++;
+    if (t->type == TT_PUNCT) _punct_count++;
   }
 
   assert(punct_count == _punct_count);
@@ -159,6 +161,7 @@ int main(void) {
   lexer_all_chars_string_test(logger, "The quick brown fox jumps over the lazy dog", 17);
   lexer_all_chars_string_test(logger, " The\tquick brown\nfox jumps over\nthe lazy dog", 18);
   lexer_string_with_punctuations_test(logger, "The quick brown fox - jumps over the lazy dog.", 20, 2);
+  lexer_string_with_punctuations_test(logger, "The quick, brown fox - jumps over, the lazy dog.", 22, 2);
   lexer_string_crlf_test(logger, "\r\nThe quick brown fox\r\njumps over the lazy dog\r\n", 19, 3);
   lexer_string_with_digits_test(logger, "The quick brown 1 jumps over the lazy 99", 17, 2);
   lexer_string_with_digits_test(logger, " 1 quick brown 99-jumps over the lazy 256.", 19, 3);

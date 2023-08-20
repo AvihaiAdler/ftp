@@ -9,7 +9,10 @@ static void token_destroy(void *_token) {
 }
 
 static struct token token_punc(char const *ptr) {
-  return (struct token){.type = TT_PUNC, .punctuation = *ptr};
+  enum token_type type = TT_PUNCT;
+  if (*ptr == ',') type = TT_COMMA;
+
+  return (struct token){.type = type, .punctuation = *ptr};
 }
 
 static struct token token_space(char const **ptr) {

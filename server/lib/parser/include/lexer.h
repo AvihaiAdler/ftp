@@ -5,7 +5,8 @@
 
 enum token_type {
   TT_INT,
-  TT_PUNC,
+  TT_PUNCT,
+  TT_COMMA, /* the only punctuation we care about is a '.' the rest are generalized*/
   TT_STRING,
   TT_SPACE,
   TT_CRLF,
