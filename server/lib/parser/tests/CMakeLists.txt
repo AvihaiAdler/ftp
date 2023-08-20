@@ -1,0 +1,35 @@
+set(PARSER_SANITY_TESTS lexer_sanity)
+
+foreach(test ${PARSER_SANITY_TESTS})
+  add_executable(${test})
+  target_sources(${test}
+    PRIVATE ${test}.c
+  )
+
+  add_test(NAME ${test} COMMAND $<TARGET_FILE:${test}>)
+
+  target_compile_features(${test}
+    PRIVATE c_std_11
+  )
+
+  target_compile_options(${test}
+    PRIVATE
+    -Wall
+    -Wextra
+    -Wpedantic
+    -Og
+    -g
+    -fsanitize=address,undefined
+  )
+
+  target_link_options(${test}
+    PRIVATE
+    -fsanitize=address,undefined
+  )
+
+  target_link_libraries(${test}
+    PRIVATE
+    parser
+    logger
+  )
+endforeach()

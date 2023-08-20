@@ -7,9 +7,9 @@ endif()
 
 include(FetchContent)
 FetchContent_Declare(ds
-    SOURCE_DIR lib/ds
-    GIT_REPOSITORY https://github.com/AvihaiAdler/common-data-structures
-    GIT_TAG main
+  SOURCE_DIR lib/ds
+  GIT_REPOSITORY https://github.com/AvihaiAdler/common-data-structures
+  GIT_TAG main
 )
 FetchContent_MakeAvailable(ds)
 
@@ -19,3 +19,4 @@ add_subdirectory(lib/requests)
 add_subdirectory(lib/util)
 add_subdirectory(lib/sqlite)
 add_subdirectory(lib/dbm)
+add_subdirectory(lib/parser)
