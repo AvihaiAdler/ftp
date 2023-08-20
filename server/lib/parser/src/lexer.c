@@ -17,7 +17,7 @@ static struct token token_punc(char const *ptr) {
 
 static struct token token_space(char const **ptr) {
   char const *curr = *ptr;
-  if (*curr == '\r' && *(curr + 1) == '\n') {  // check of CRLF
+  if (*curr == '\r' && *(curr + 1) == '\n') {  // check for CRLF
     *ptr = curr + 1;
     return (struct token){.type = TT_CRLF};
   }
