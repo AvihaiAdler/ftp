@@ -70,7 +70,7 @@ struct thread_pool *thread_pool_create(uint8_t num_of_threads, void (*destroy_ta
   }
 
   // init tasks
-  thread_pool->tasks = list_create(destroy_task);
+  thread_pool->tasks = list_create(sizeof(struct task), destroy_task);
 
   // init mutex
   if (mtx_init(&thread_pool->tasks_mtx, mtx_plain) != thrd_success) {
