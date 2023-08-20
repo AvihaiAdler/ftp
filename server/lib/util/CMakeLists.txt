@@ -3,10 +3,15 @@ add_library(util)
 target_sources(util
   PRIVATE
   src/algorithm.c
+  src/session.c
 )
 
 target_compile_features(util
   PRIVATE c_std_99
+)
+
+target_compile_definitions(util
+  PRIVATE -D_XOPEN_SOURCE=700
 )
 
 target_compile_options(util
