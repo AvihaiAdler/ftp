@@ -22,6 +22,12 @@ static struct token token_space(char const **ptr) {
     return (struct token){.type = TT_CRLF};
   }
 
+  for (; isspace(*curr) && *curr != '\r'; curr++) {
+    continue;
+  }
+
+  *ptr = curr - 1;
+
   return (struct token){.type = TT_SPACE};
 }
 

@@ -159,6 +159,8 @@ int main(void) {
 
   lexer_empty_string_test(logger);
   lexer_all_chars_string_test(logger, "The quick brown fox jumps over the lazy dog", 17);
+  lexer_all_chars_string_test(logger, "  The quick brown fox \t jumps over the lazy dog     ", 19);
+  lexer_all_chars_string_test(logger, "  \r\nThe quick brown fox \t \r\njumps over the lazy dog   \r\n  ", 23);
   lexer_all_chars_string_test(logger, " The\tquick brown\nfox jumps over\nthe lazy dog", 18);
   lexer_string_with_punctuations_test(logger, "The quick brown fox - jumps over the lazy dog.", 20, 2);
   lexer_string_with_punctuations_test(logger, "The quick, brown fox - jumps over, the lazy dog.", 22, 2);
