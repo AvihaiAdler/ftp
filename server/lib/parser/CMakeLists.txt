@@ -3,8 +3,7 @@ add_library(parser)
 target_sources(parser
   PRIVATE
   src/lexer.c
-
-  # src/parser.c
+  src/parser.c
 )
 
 target_compile_features(parser
