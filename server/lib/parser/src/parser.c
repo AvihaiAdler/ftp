@@ -297,26 +297,5 @@ invalid_command:
 void command_destroy(struct command *cmd) {
   if (!cmd) return;
 
-  switch (cmd->command) {
-    case CMD_USER:  // start of fallthrough
-    case CMD_PASS:
-    case CMD_CWD:
-    case CMD_CDUP:
-    case CMD_QUIT:
-    case CMD_PORT:
-    case CMD_PASV:
-    case CMD_RETR:
-    case CMD_STOR:
-    case CMD_RNFR:
-    case CMD_RNTO:
-    case CMD_DELE:
-    case CMD_RMD:
-    case CMD_MKD:
-    case CMD_PWD:
-    case CMD_LIST:
-      ascii_str_destroy(&cmd->arg);
-      break;
-    default:
-      break;
-  }
+  if (cmd->command != CMD_UNSUPPORTED || cmd->command != CMD_INVALID) { ascii_str_destroy(&cmd->arg); }
 }
