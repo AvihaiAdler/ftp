@@ -1,11 +1,10 @@
 #pragma once
 
+#include "ascii_str.h"
 #include "hash_table.h"
 #include "vec.h"
 
 enum command_type {
-  CMD_INVALID,
-  CMD_UNSUPPORTED,
   CMD_USER,
   CMD_PASS,
   CMD_CWD,
@@ -22,24 +21,15 @@ enum command_type {
   CMD_MKD,
   CMD_PWD,
   CMD_LIST,
+  CMD_INVALID,
+  CMD_UNSUPPORTED,
 };
 
 struct command {
   enum command_type command;
-  struct vec args;  // vec<string>
+  struct ascii_str arg;
 };
 
-/**
- * @brief generate a hash table of the supported identifiers
- * the hash table should never be written to
- *
- * @return struct hash_table
- * hash_table<string, NULL> - i.e. set<string>
- */
-struct hash_table identifiers_create(void);
-
-void identifiers_destroy(struct hash_table *identifiers);
-
-struct command parser_parse(struct hash_table const *identifiers, struct vec *tokens, size_t tokens_count, ...);
+struct command parser_parse(struct vec *tokens);
 
 void command_destroy(struct command *cmd);
