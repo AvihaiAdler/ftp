@@ -96,11 +96,13 @@ static size_t hash(struct ascii_str *token_str, size_t seed, size_t limit) {
   return _hash % limit;
 }
 
-struct vec lexer_lex(struct ascii_str *text) {
-  struct vec tokens = vec_create(sizeof(struct token), token_destroy);
+struct list lexer_lex(struct ascii_str *text) {
+  struct list tokens =
+    list_create(sizeof(struct token), token_destroy);  // vec_create(sizeof(struct token), token_destroy);
 
   if (ascii_str_empty(text)) {  // checks if !text as well
-    vec_push(&tokens, &(struct token){.type = TT_EOF});
+    // vec_push(&tokens, &(struct token){.type = TT_EOF});
+    (void)list_append(&tokens, &(struct token){.type = TT_EOF});
     return tokens;
   }
 
@@ -126,10 +128,12 @@ struct vec lexer_lex(struct ascii_str *text) {
       }
     }
 
-    vec_push(&tokens, &token);
+    // vec_push(&tokens, &token);
+    (void)list_append(&tokens, &token);
   }
 
-  vec_push(&tokens, &(struct token){.type = TT_EOF});
+  // vec_push(&tokens, &(struct token){.type = TT_EOF});
+  (void)list_append(&tokens, &(struct token){.type = TT_EOF});
 
   return tokens;
 }

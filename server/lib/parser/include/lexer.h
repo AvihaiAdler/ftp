@@ -1,7 +1,7 @@
 #pragma once
 
 #include "ascii_str.h"
-#include "vec.h"
+#include "list.h"
 
 #define TOKEN_MAPPING_SIZE 61
 
@@ -58,4 +58,4 @@ struct token {
   };
 };
 
-struct vec lexer_lex(struct ascii_str *text);
+struct list lexer_lex(struct ascii_str *text);

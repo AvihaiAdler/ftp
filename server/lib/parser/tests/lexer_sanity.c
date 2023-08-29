@@ -4,13 +4,13 @@
 #include "lexer.h"
 #include "logger.h"
 
-#define PRINT_TOKENS(logger, tokens_ptr)                                            \
-  do {                                                                              \
-    for (void *iter = vec_iter_begin(tokens_ptr); iter != vec_iter_end(tokens_ptr); \
-         iter = vec_iter_next(tokens_ptr, iter)) {                                  \
-      struct token *t = iter;                                                       \
-      LOG(logger, INFO, "token type: %s", token_type_name(t->type));                \
-    }                                                                               \
+#define PRINT_TOKENS(logger, tokens_ptr)                                              \
+  do {                                                                                \
+    for (void *iter = list_iter_begin(tokens_ptr); iter != list_iter_end(tokens_ptr); \
+         iter = list_iter_next(tokens_ptr, iter)) {                                   \
+      struct token *t = *(struct token **)iter;                                       \
+      LOG(logger, INFO, "token type: %s", token_type_name(t->type));                  \
+    }                                                                                 \
   } while (0);
 
 static char const *token_type_name(enum token_type type) {
@@ -113,17 +113,17 @@ static void lexer_empty_string_test(struct logger *logger) {
   LOG(logger, INFO, "%s", ascii_str_c_str(&text));
 
   // when
-  struct vec tokens = lexer_lex(&text);
+  struct list tokens = lexer_lex(&text);
 
   // then
-  assert(vec_size(&tokens) == 1);
+  assert(list_size(&tokens) == 1);
 
-  struct token *t = vec_at(&tokens, 0);
+  struct token *t = list_peek_first(&tokens);
   assert(t->type == TT_EOF);
 
   PRINT_TOKENS(logger, &tokens);
 
-  vec_destroy(&tokens);
+  list_destroy(&tokens);
   ascii_str_destroy(&text);
 }
 
@@ -133,13 +133,13 @@ static void lexer_all_chars_string_test(struct logger *logger, char const *_text
   LOG(logger, INFO, "%s", ascii_str_c_str(&text));
 
   // when
-  struct vec tokens = lexer_lex(&text);
+  struct list tokens = lexer_lex(&text);
   PRINT_TOKENS(logger, &tokens);
 
   // then
-  assert(vec_size(&tokens) == expected_tokens + 1);
+  assert(list_size(&tokens) == expected_tokens + 1);
 
-  vec_destroy(&tokens);
+  list_destroy(&tokens);
   ascii_str_destroy(&text);
 }
 
@@ -152,14 +152,14 @@ static void lexer_string_with_punctuations_test(struct logger *logger,
   LOG(logger, INFO, "%s", ascii_str_c_str(&text));
 
   // when
-  struct vec tokens = lexer_lex(&text);
+  struct list tokens = lexer_lex(&text);
 
   // then
-  assert(vec_size(&tokens) == expected_tokens + 1);
+  assert(list_size(&tokens) == expected_tokens + 1);
 
   size_t _punct_count = 0;
-  for (void *iter = vec_iter_begin(&tokens); iter != vec_iter_end(&tokens); iter = vec_iter_next(&tokens, iter)) {
-    struct token *t = iter;
+  for (void *iter = list_iter_begin(&tokens); iter != list_iter_end(&tokens); iter = list_iter_next(&tokens, iter)) {
+    struct token *t = *(struct token **)iter;
     if (t->type == TT_PUNCT) _punct_count++;
   }
 
@@ -167,7 +167,7 @@ static void lexer_string_with_punctuations_test(struct logger *logger,
 
   PRINT_TOKENS(logger, &tokens);
 
-  vec_destroy(&tokens);
+  list_destroy(&tokens);
   ascii_str_destroy(&text);
 }
 
@@ -180,14 +180,14 @@ static void lexer_string_crlf_test(struct logger *logger,
   LOG(logger, INFO, "%s", ascii_str_c_str(&text));
 
   // when
-  struct vec tokens = lexer_lex(&text);
+  struct list tokens = lexer_lex(&text);
 
   // then
-  assert(vec_size(&tokens) == expected_tokens + 1);
+  assert(list_size(&tokens) == expected_tokens + 1);
 
   size_t _crlf_count = 0;
-  for (void *iter = vec_iter_begin(&tokens); iter != vec_iter_end(&tokens); iter = vec_iter_next(&tokens, iter)) {
-    struct token *t = iter;
+  for (void *iter = list_iter_begin(&tokens); iter != list_iter_end(&tokens); iter = list_iter_next(&tokens, iter)) {
+    struct token *t = *(struct token **)iter;
     if (t->type == TT_CRLF) _crlf_count++;
   }
 
@@ -195,7 +195,7 @@ static void lexer_string_crlf_test(struct logger *logger,
 
   PRINT_TOKENS(logger, &tokens);
 
-  vec_destroy(&tokens);
+  list_destroy(&tokens);
   ascii_str_destroy(&text);
 }
 
@@ -208,14 +208,14 @@ static void lexer_string_with_digits_test(struct logger *logger,
   LOG(logger, INFO, "%s", ascii_str_c_str(&text));
 
   // when
-  struct vec tokens = lexer_lex(&text);
+  struct list tokens = lexer_lex(&text);
 
   // then
-  assert(vec_size(&tokens) == expected_tokens + 1);
+  assert(list_size(&tokens) == expected_tokens + 1);
 
   size_t _numbers_count = 0;
-  for (void *iter = vec_iter_begin(&tokens); iter != vec_iter_end(&tokens); iter = vec_iter_next(&tokens, iter)) {
-    struct token *t = iter;
+  for (void *iter = list_iter_begin(&tokens); iter != list_iter_end(&tokens); iter = list_iter_next(&tokens, iter)) {
+    struct token *t = *(struct token **)iter;
     if (t->type == TT_INT) _numbers_count++;
   }
 
@@ -223,7 +223,7 @@ static void lexer_string_with_digits_test(struct logger *logger,
 
   PRINT_TOKENS(logger, &tokens);
 
-  vec_destroy(&tokens);
+  list_destroy(&tokens);
   ascii_str_destroy(&text);
 }
 
@@ -233,7 +233,8 @@ static void lexer_string_with_keywords_test(struct logger *logger, char *_text, 
   LOG(logger, INFO, "%s", ascii_str_c_str(&text));
 
   // when
-  struct vec tokens = lexer_lex(&text);
+  struct list tokens = lexer_lex(&text);
+  PRINT_TOKENS(logger, &tokens);
 
   // then
   size_t expected_keywords = 0;
@@ -242,16 +243,14 @@ static void lexer_string_with_keywords_test(struct logger *logger, char *_text, 
   va_start(args, keywords_count);
   for (size_t i = 0; i < keywords_count; i++) {
     enum token_type tt = va_arg(args, enum token_type);
-    assert(vec_find(&tokens, &(struct token){.type = tt}, cmpr_tokens));
+    assert(list_index_of(&tokens, &(struct token){.type = tt}, cmpr_tokens) >= 0);
     expected_keywords++;
   }
   va_end(args);
 
   assert(expected_keywords == keywords_count);
 
-  PRINT_TOKENS(logger, &tokens);
-
-  vec_destroy(&tokens);
+  list_destroy(&tokens);
   ascii_str_destroy(&text);
 }
 
