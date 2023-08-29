@@ -2,7 +2,7 @@
 
 #include "ascii_str.h"
 #include "hash_table.h"
-#include "vec.h"
+#include "list.h"
 
 enum command_type {
   CMD_USER,
@@ -30,6 +30,6 @@ struct command {
   struct ascii_str arg;
 };
 
-struct command parser_parse(struct vec *tokens);
+struct command parser_parse(struct list *tokens);
 
 void command_destroy(struct command *cmd);
