@@ -1,144 +1,157 @@
 #include "thread_pool.h"
-
 #include <stdlib.h>
 
-#include "thread_pool_impl.h"
+struct args {
+  atomic_bool stop;
+  mtx_t *tasks_mtx;
+  cnd_t *tasks_cnd;
+  struct list *tasks;
+};
 
-static int thread_func_wrapper(void *arg) {
-  struct thread_args *thread_args = arg;
+struct thread {
+  thrd_t id;
+  struct args args;
+};
+
+struct thread_pool {
+  mtx_t _tasks_mtx;
+  cnd_t _tasks_cnd;
+
+  struct vec _threads;  // vec<thread>
+  struct list _tasks;   // list<task>
+};
+
+static int start(void *arg) {
+  struct args *thread_args = arg;
 
   // as long as the thread shouldn't terminate
-  while (!atomic_load(&thread_args->self->terminate)) {
-    mtx_lock(thread_args->tasks_mtx);  // assumes never fails
-    // there're no tasks
-    while (list_size(thread_args->tasks) == 0) {
-      cnd_wait(thread_args->tasks_cnd, thread_args->tasks_mtx);
+  while (!atomic_load(&thread_args->stop)) {
+    // try to get a task
+    while (mtx_lock(thread_args->tasks_mtx) != thrd_success) {
+      continue;
+    }
 
-      if (atomic_load(&thread_args->self->terminate)) {
-        mtx_unlock(thread_args->tasks_mtx);
-        goto end_lbl;
+    // there're no tasks - wait
+    while (list_empty(thread_args->tasks)) {
+
+      while (cnd_wait(thread_args->tasks_cnd, thread_args->tasks_mtx) != thrd_success) {
+        continue;
+      }
+
+      // if should stop - break
+      if (atomic_load(&thread_args->stop)) {
+        while (mtx_unlock(thread_args->tasks_mtx) != thrd_success) {
+          continue;
+        }
+
+        goto thread_stop;
       }
     }
 
     struct task *task = list_remove_first(thread_args->tasks);
 
-    mtx_unlock(thread_args->tasks_mtx);  // assumes never fails
+    while (mtx_unlock(thread_args->tasks_mtx) != thrd_success) {
+      continue;
+    }
 
+    if (!task) continue;
     // handle the task
     // as long as task is valid the thread shouldn't stop
-
-    if (task) {
-      if (task->handle_task) task->handle_task(task->args);
-      if (thread_args->destroy_task) thread_args->destroy_task(task);
-      free(task);
-    }
+    if (task->handle_task) task->handle_task(task->args);
+    if (task->destroy_task) task->destroy_task(task);
+    free(task);
   }
 
-end_lbl:
-  free(thread_args);
-
+thread_stop:
   return 0;
 }
 
-static void cleanup(struct thread_pool *thread_pool, bool tasks_mtx, bool tasks_cnd) {
+static void terminate(struct vec *threads, cnd_t *cnd) {
+  if (!threads) return;
+
+  for (size_t i = 0; i < vec_size(threads); i++) {
+    struct thread *curr = vec_at(threads, i);
+    atomic_store(&curr->args.stop, true);
+  }
+
+  while (cnd_broadcast(cnd) != thrd_success) {
+    continue;
+  }
+
+  for (size_t i = 0; i < vec_size(threads); i++) {
+    struct thread *curr = vec_at(threads, i);
+    thrd_join(curr->id, NULL);
+  }
+}
+
+static void destroy_task_internal(void *_task) {
+  struct task *task = _task;
+
+  if (task->destroy_task) task->destroy_task(task);
+}
+
+struct thread_pool *thread_pool_create(uint8_t threads_count) {
+  if (!threads_count) goto invalid_thread_pool;
+
+  struct thread_pool *tp = calloc(1, sizeof *tp);
+  if (!tp) goto invalid_thread_pool;
+
+  if (mtx_init(&tp->_tasks_mtx, mtx_plain) != thrd_success) { goto invalid_thread_pool; }
+  if (cnd_init(&tp->_tasks_cnd) != thrd_success) { goto mtx_cleanup; }
+
+  tp->_threads = vec_create(sizeof(struct thread), NULL);
+  vec_reserve(&tp->_threads, threads_count);
+
+  tp->_tasks = list_create(sizeof(struct task), destroy_task_internal);
+
+  for (uint8_t i = 0; i < threads_count; i++) {
+    struct args args =
+      (struct args){.stop = false, .tasks = &tp->_tasks, .tasks_cnd = &tp->_tasks_cnd, .tasks_mtx = &tp->_tasks_mtx};
+    vec_push(&tp->_threads, &(struct thread){.id = 0, .args = args});
+  }
+
+  for (size_t i = 0; i < vec_size(&tp->_threads); i++) {
+    struct thread *curr_thrd = vec_at(&tp->_threads, i);
+    if (curr_thrd) thrd_create(&curr_thrd->id, start, &curr_thrd->args);
+  }
+
+  return tp;
+
+mtx_cleanup:
+  mtx_destroy(&tp->_tasks_mtx);
+invalid_thread_pool:
+  return NULL;
+}
+
+void thread_pool_destroy(struct thread_pool *thread_pool) {
   if (!thread_pool) return;
 
-  if (thread_pool->threads) free(thread_pool->threads);
-
-  list_destroy(&thread_pool->tasks);
-
-  if (tasks_mtx) mtx_destroy(&thread_pool->tasks_mtx);
-
-  if (tasks_cnd) cnd_destroy(&thread_pool->tasks_cnd);
-
+  terminate(&thread_pool->_threads, &thread_pool->_tasks_cnd);
+  vec_destroy(&thread_pool->_threads);
+  list_destroy(&thread_pool->_tasks);
+  mtx_destroy(&thread_pool->_tasks_mtx);
+  cnd_destroy(&thread_pool->_tasks_cnd);
   free(thread_pool);
-}
-
-struct thread_pool *thread_pool_create(uint8_t num_of_threads, void (*destroy_task)(void *task)) {
-  if (num_of_threads == 0) return NULL;
-
-  struct thread_pool *thread_pool = calloc(1, sizeof *thread_pool);
-  if (!thread_pool) return NULL;
-
-  thread_pool->num_of_threads = num_of_threads;
-
-  // init threads
-  thread_pool->threads = calloc(num_of_threads, sizeof *thread_pool->threads);
-  if (!thread_pool->threads) {
-    cleanup(thread_pool, false, false);
-    return NULL;
-  }
-
-  // init tasks
-  thread_pool->tasks = list_create(sizeof(struct task), destroy_task);
-
-  // init mutex
-  if (mtx_init(&thread_pool->tasks_mtx, mtx_plain) != thrd_success) {
-    cleanup(thread_pool, true, false);
-    return NULL;
-  }
-
-  // init condition variable
-  if (cnd_init(&thread_pool->tasks_cnd) != thrd_success) {
-    cleanup(thread_pool, true, true);
-    return NULL;
-  }
-
-  // creates the threads
-  for (uint8_t i = 0; i < num_of_threads; i++) {
-    struct thread_args *thread_args = calloc(1, sizeof *thread_args);
-    if (!thread_args) cleanup(thread_pool, true, true);
-
-    thread_args->tasks = &thread_pool->tasks;
-    thread_args->tasks_mtx = &thread_pool->tasks_mtx;
-    thread_args->tasks_cnd = &thread_pool->tasks_cnd;
-    thread_args->self = &thread_pool->threads[i];
-    thread_args->destroy_task = destroy_task;
-
-    atomic_init(&thread_pool->threads[i].terminate, false);
-
-    /* the thread takes owership of thread_args. its his responsibility to free
-     * it at the end*/
-    thrd_create(&thread_pool->threads[i].thread, thread_func_wrapper,
-                thread_args);  // assumes never fails
-  }
-
-  return thread_pool;
-}
-
-void thread_pool_destroy(struct thread_pool *restrict thread_pool) {
-  if (!thread_pool) return;
-
-  // signal all threads to terminate
-  for (uint8_t i = 0; i < thread_pool->num_of_threads; i++) {
-    atomic_store(&thread_pool->threads[i].terminate, true);
-  }
-
-  // wakeup all threads
-  cnd_broadcast(&thread_pool->tasks_cnd);
-
-  // wait on all threads to exit
-  for (uint8_t i = 0; i < thread_pool->num_of_threads; i++) {
-    thrd_join(thread_pool->threads[i].thread, NULL);
-  }
-
-  cleanup(thread_pool, true, true);
 }
 
 bool thread_pool_add_task(struct thread_pool *restrict thread_pool, struct task const *restrict task) {
   if (!thread_pool) return false;
-
   if (!task) return false;
 
-  if (mtx_lock(&thread_pool->tasks_mtx) == thrd_error) { return false; }
-
-  bool ret = list_append(&thread_pool->tasks, task, sizeof *task);
-
-  // wakeup all threads
-  if (ret) cnd_broadcast(&thread_pool->tasks_cnd);
-
-  while (mtx_unlock(&thread_pool->tasks_mtx) == thrd_error) {
+  while (mtx_lock(&thread_pool->_tasks_mtx) != thrd_success) {
     continue;
+  }
+
+  bool ret = list_append(&thread_pool->_tasks, task);
+
+  while (mtx_unlock(&thread_pool->_tasks_mtx) != thrd_success) {
+    continue;
+  }
+
+  if (ret) {
+    while (cnd_broadcast(&thread_pool->_tasks_cnd) != thrd_success) {
+      continue;
+    }
   }
 
   return ret;

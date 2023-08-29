@@ -1,28 +1,46 @@
 #pragma once
-
+/**
+ * @file thread_pool.h
+ */
+#include <stdatomic.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <threads.h>
+#include "list.h"
+#include "vec.h"
 
-/* a thread_pool object. contains an array of threads, mutexes and condition
- * variables */
 struct thread_pool;
 
-/* represent a task which a thread may handle. the thread handle a task by
- * calling handle_task(args). a thread may always call handle_tasks with
- * args as an argument */
+/**
+ * @brief task object
+ */
 struct task {
-  void *args;  // a ptr to additional args. must be free'd by destroy_task
+  void *args;
   int (*handle_task)(void *arg);
+  void (*destroy_task)(void *arg);
 };
 
-/* creates a thread_pool object. expects some num_of_threads bigger than 0
- * (which must be a reasonable amount). return struct thread_pool * on success,
- * or NULL on failure. expects destroy_task, a function which takes in a struct task and free its underlying task::args.
- * destroy_task shold never free the task itsef */
-struct thread_pool *thread_pool_create(uint8_t num_of_threads, void (*destroy_task)(void *task));
+/**
+ * @brief creates a thread pool with `threads_count` threads
+ *
+ * @param[in] threads_count the number of threads to spawn
+ * @return `struct thread_pool`
+ */
+struct thread_pool *thread_pool_create(uint8_t threads_count);
 
-/* destroys a thread_pool object */
-void thread_pool_destroy(struct thread_pool *restrict thread_pool);
+/**
+ * @brief terminates all threads gracefully and destroys a thread pool
+ *
+ * @param[in] thread_pool
+ */
+void thread_pool_destroy(struct thread_pool *thread_pool);
 
-/* adds a task to the thread_pool to handle asynchronously */
+/**
+ * @brief adds a task to be executes asynchronously
+ *
+ * @param[in] thread_pool
+ * @param[in] task the task to execute
+ * @return `true` if the operation succeded
+ * @return `false` if the operation failed
+ */
 bool thread_pool_add_task(struct thread_pool *restrict thread_pool, struct task const *restrict task);

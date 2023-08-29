@@ -24,7 +24,7 @@ find_library(threads
 
 target_link_libraries(thread_pool
   PUBLIC ${threads}
-  PRIVATE ds
+  PUBLIC ds
 )
 
 target_include_directories(thread_pool
