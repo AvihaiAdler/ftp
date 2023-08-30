@@ -12,7 +12,7 @@ foreach(test ${PARSER_SANITY_TESTS})
   add_test(NAME ${test} COMMAND $<TARGET_FILE:${test}>)
 
   target_compile_features(${test}
-    PRIVATE c_std_11
+    PRIVATE c_std_99
   )
 
   target_compile_options(${test}
@@ -33,7 +33,6 @@ foreach(test ${PARSER_SANITY_TESTS})
   target_link_libraries(${test}
     PRIVATE
     parser
-    logger
   )
 endforeach()
 
