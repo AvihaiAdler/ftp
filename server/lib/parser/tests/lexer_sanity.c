@@ -1,15 +1,25 @@
 #include <assert.h>
 #include <stdarg.h>
+#include <stdio.h>
 #include "ascii_str.h"
 #include "lexer.h"
-#include "logger.h"
 
-#define PRINT_TOKENS(logger, tokens_ptr)                                              \
+#define LOG(stream, fmt, ...)                                                       \
+  do {                                                                              \
+    fprintf(stream, "%s %s:%d\n\t" fmt, __FILE__, __func__, __LINE__, __VA_ARGS__); \
+  } while (0);
+
+#define LOG_STRIPPED(stream, fmt, ...)      \
+  do {                                      \
+    fprintf(stream, "\t" fmt, __VA_ARGS__); \
+  } while (0);
+
+#define PRINT_TOKENS(stderr, tokens_ptr)                                              \
   do {                                                                                \
     for (void *iter = list_iter_begin(tokens_ptr); iter != list_iter_end(tokens_ptr); \
          iter = list_iter_next(tokens_ptr, iter)) {                                   \
       struct token *t = *(struct token **)iter;                                       \
-      LOG(logger, INFO, "token type: %s", token_type_name(t->type));                  \
+      LOG_STRIPPED(stderr, "token type: %s\n", token_type_name(t->type));             \
     }                                                                                 \
   } while (0);
 
@@ -107,10 +117,10 @@ static int cmpr_tokens(void const *_a, void const *_b) {
   return a->type == b->type ? 0 : 1;
 }
 
-static void lexer_empty_string_test(struct logger *logger) {
+static void lexer_empty_string_test(void) {
   // given
   struct ascii_str text = ascii_str_create("", STR_C_STR);
-  LOG(logger, INFO, "%s", ascii_str_c_str(&text));
+  LOG(stderr, "attempt to parse: %s\n", ascii_str_c_str(&text));
 
   // when
   struct list tokens = lexer_lex(&text);
@@ -121,20 +131,20 @@ static void lexer_empty_string_test(struct logger *logger) {
   struct token *t = list_peek_first(&tokens);
   assert(t->type == TT_EOF);
 
-  PRINT_TOKENS(logger, &tokens);
+  PRINT_TOKENS(stderr, &tokens);
 
   list_destroy(&tokens);
   ascii_str_destroy(&text);
 }
 
-static void lexer_all_chars_string_test(struct logger *logger, char const *_text, size_t expected_tokens) {
+static void lexer_all_chars_string_test(char const *_text, size_t expected_tokens) {
   // given
   struct ascii_str text = ascii_str_create(_text, STR_C_STR);
-  LOG(logger, INFO, "%s", ascii_str_c_str(&text));
+  LOG(stderr, "attempt to parse: %s\n", ascii_str_c_str(&text));
 
   // when
   struct list tokens = lexer_lex(&text);
-  PRINT_TOKENS(logger, &tokens);
+  PRINT_TOKENS(stderr, &tokens);
 
   // then
   assert(list_size(&tokens) == expected_tokens + 1);
@@ -143,13 +153,10 @@ static void lexer_all_chars_string_test(struct logger *logger, char const *_text
   ascii_str_destroy(&text);
 }
 
-static void lexer_string_with_punctuations_test(struct logger *logger,
-                                                char const *_text,
-                                                size_t expected_tokens,
-                                                size_t punct_count) {
+static void lexer_string_with_punctuations_test(char const *_text, size_t expected_tokens, size_t punct_count) {
   // given
   struct ascii_str text = ascii_str_create(_text, STR_C_STR);
-  LOG(logger, INFO, "%s", ascii_str_c_str(&text));
+  LOG(stderr, "attempt to parse: %s\n", ascii_str_c_str(&text));
 
   // when
   struct list tokens = lexer_lex(&text);
@@ -165,19 +172,16 @@ static void lexer_string_with_punctuations_test(struct logger *logger,
 
   assert(punct_count == _punct_count);
 
-  PRINT_TOKENS(logger, &tokens);
+  PRINT_TOKENS(stderr, &tokens);
 
   list_destroy(&tokens);
   ascii_str_destroy(&text);
 }
 
-static void lexer_string_crlf_test(struct logger *logger,
-                                   char const *_text,
-                                   size_t expected_tokens,
-                                   size_t crlf_count) {
+static void lexer_string_crlf_test(char const *_text, size_t expected_tokens, size_t crlf_count) {
   // given
   struct ascii_str text = ascii_str_create(_text, STR_C_STR);
-  LOG(logger, INFO, "%s", ascii_str_c_str(&text));
+  LOG(stderr, "attempt to parse: %s\n", ascii_str_c_str(&text));
 
   // when
   struct list tokens = lexer_lex(&text);
@@ -193,19 +197,16 @@ static void lexer_string_crlf_test(struct logger *logger,
 
   assert(crlf_count == _crlf_count);
 
-  PRINT_TOKENS(logger, &tokens);
+  PRINT_TOKENS(stderr, &tokens);
 
   list_destroy(&tokens);
   ascii_str_destroy(&text);
 }
 
-static void lexer_string_with_digits_test(struct logger *logger,
-                                          char *_text,
-                                          size_t expected_tokens,
-                                          size_t numbers_count) {
+static void lexer_string_with_digits_test(char *_text, size_t expected_tokens, size_t numbers_count) {
   // given
   struct ascii_str text = ascii_str_create(_text, STR_C_STR);
-  LOG(logger, INFO, "%s", ascii_str_c_str(&text));
+  LOG(stderr, "attempt to parse: %s\n", ascii_str_c_str(&text));
 
   // when
   struct list tokens = lexer_lex(&text);
@@ -221,20 +222,20 @@ static void lexer_string_with_digits_test(struct logger *logger,
 
   assert(numbers_count == _numbers_count);
 
-  PRINT_TOKENS(logger, &tokens);
+  PRINT_TOKENS(stderr, &tokens);
 
   list_destroy(&tokens);
   ascii_str_destroy(&text);
 }
 
-static void lexer_string_with_keywords_test(struct logger *logger, char *_text, size_t keywords_count, ...) {
+static void lexer_string_with_keywords_test(char *_text, size_t keywords_count, ...) {
   // given
   struct ascii_str text = ascii_str_create(_text, STR_C_STR);
-  LOG(logger, INFO, "%s", ascii_str_c_str(&text));
+  LOG(stderr, "attempt to parse: %s\n", ascii_str_c_str(&text));
 
   // when
   struct list tokens = lexer_lex(&text);
-  PRINT_TOKENS(logger, &tokens);
+  PRINT_TOKENS(stderr, &tokens);
 
   // then
   size_t expected_keywords = 0;
@@ -255,23 +256,20 @@ static void lexer_string_with_keywords_test(struct logger *logger, char *_text, 
 }
 
 int main(void) {
-  struct logger *logger = logger_init(NULL);
-
-  lexer_empty_string_test(logger);
-  lexer_all_chars_string_test(logger, "The quick brown fox jumps over the lazy dog", 17);
-  lexer_all_chars_string_test(logger, "  The quick brown fox \t jumps over the lazy dog     ", 19);
-  lexer_all_chars_string_test(logger, "  \r\nThe quick brown fox \t \r\njumps over the lazy dog   \r\n  ", 23);
-  lexer_all_chars_string_test(logger, " The\tquick brown\nfox jumps over\nthe lazy dog", 18);
-  lexer_string_with_punctuations_test(logger, "The quick brown fox - jumps over the lazy dog.", 20, 2);
-  lexer_string_with_punctuations_test(logger, "The quick, brown fox - jumps over, the lazy dog.", 22, 2);
-  lexer_string_crlf_test(logger, "\r\nThe quick brown fox\r\njumps over the lazy dog\r\n", 19, 3);
-  lexer_string_with_digits_test(logger, "The quick brown 1 jumps over the lazy 99", 17, 2);
-  lexer_string_with_digits_test(logger, " 1 quick brown 99-jumps over the lazy 256.", 19, 3);
-  lexer_string_with_digits_test(logger, "PORT 127,0,0,1", 9, 4);
-  lexer_string_with_keywords_test(logger, "PORT 127,0,0,1", 1, TT_PORT);
-  lexer_string_with_keywords_test(logger, "USER some_user PASS 1234", 2, TT_USER, TT_PASS);
-  lexer_string_with_keywords_test(logger, "The quick brown fox jumps over the lazy dog", 0);
-  lexer_string_with_keywords_test(logger, "PASV", 1, TT_PASV);
-
-  logger_destroy(logger);
+  lexer_empty_string_test();
+  lexer_all_chars_string_test("PASS some_password", 3);
+  lexer_all_chars_string_test("The quick brown fox jumps over the lazy dog", 17);
+  lexer_all_chars_string_test("  The quick brown fox \t jumps over the lazy dog     ", 19);
+  lexer_all_chars_string_test("  \r\nThe quick brown fox \t \r\njumps over the lazy dog   \r\n  ", 23);
+  lexer_all_chars_string_test(" The\tquick brown\nfox jumps over\nthe lazy dog", 18);
+  lexer_string_with_punctuations_test("The quick brown fox - jumps over the lazy dog.", 20, 2);
+  lexer_string_with_punctuations_test("The quick, brown fox - jumps over, the lazy dog.", 22, 2);
+  lexer_string_crlf_test("\r\nThe quick brown fox\r\njumps over the lazy dog\r\n", 19, 3);
+  lexer_string_with_digits_test("The quick brown 1 jumps over the lazy 99", 17, 2);
+  lexer_string_with_digits_test(" 1 quick brown 99-jumps over the lazy 256.", 19, 3);
+  lexer_string_with_digits_test("PORT 127,0,0,1", 9, 4);
+  lexer_string_with_keywords_test("PORT 127,0,0,1", 1, TT_PORT);
+  lexer_string_with_keywords_test("USER some_user PASS 1234", 2, TT_USER, TT_PASS);
+  lexer_string_with_keywords_test("The quick brown fox jumps over the lazy dog", 0);
+  lexer_string_with_keywords_test("PASV", 1, TT_PASV);
 }

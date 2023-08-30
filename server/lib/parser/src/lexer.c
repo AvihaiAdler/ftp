@@ -120,11 +120,11 @@ struct list lexer_lex(struct ascii_str *text) {
 
       if (_hash > (size_t)TOKEN_MAPPING_SIZE) {
         token = (struct token){.type = TT_STRING, .string = token_str};
-      } else if (keywords[_hash] && strcmp(ascii_str_c_str(&token_str), keywords[_hash]) != 0) {
-        token = (struct token){.type = TT_STRING, .string = token_str};
-      } else {
+      } else if (keywords[_hash] && strcmp(ascii_str_c_str(&token_str), keywords[_hash]) == 0) {  // is a keyword
         token = (struct token){.type = (enum token_type)_hash};
         ascii_str_destroy(&token_str);
+      } else {  // not a keyword
+        token = (struct token){.type = TT_STRING, .string = token_str};
       }
     }
 
