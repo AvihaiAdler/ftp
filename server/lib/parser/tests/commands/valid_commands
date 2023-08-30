@@ -1,5 +1,8 @@
 USER some_user
 PASS 123456
+PASS some_password
+PASS 123password
+PASS password123
 CWD some_directory
 CDUP
 QUIT

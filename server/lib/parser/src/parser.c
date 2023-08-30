@@ -5,8 +5,18 @@
 #include "ascii_str.h"
 #include "lexer.h"
 
-#define IPV4_OCTETS 4
-#define PORT_OCTETS 2
+static struct ascii_str long_to_str(long number) {
+  struct ascii_str str = ascii_str_create(NULL, 0);
+
+  enum ltos_size { LTOS_SIZE = 128 };
+  char buf[LTOS_SIZE];
+
+  if (snprintf(NULL, 0, "%ld", number) + 1 >= LTOS_SIZE) return str;
+  if (sprintf(buf, "%ld", number) < 0) return str;
+
+  ascii_str_append(&str, buf);
+  return str;
+}
 
 static bool parser_consume(struct list *restrict tokens, enum token_type type, struct ascii_str *restrict token) {
   if (!tokens) return false;
@@ -20,9 +30,19 @@ static bool parser_consume(struct list *restrict tokens, enum token_type type, s
     return false;
   }
 
-  if (type == TT_STRING && token) {
-    *token = curr->string;  // ascii_str_create(ascii_str_c_str(&curr->string), ascii_str_len(&curr->string));
+  if (token) {
+    switch (type) {
+      case TT_STRING:
+        *token = curr->string;
+        break;
+      case TT_INT:
+        *token = long_to_str(curr->number);
+        break;
+      default:
+        break;
+    }
   }
+
   free(curr);
   return true;
 }
@@ -54,34 +74,28 @@ static void token_destroy(struct token *token) {
 }
 
 static struct ascii_str parse_password(struct list *restrict tokens) {
-  enum local_size {
-    SIZE = 128,
-  };
-
-  char buf[SIZE];
   struct ascii_str pass = ascii_str_create(NULL, 0);
   do {
     struct token *first = list_peek_first(tokens);
     if (!first) return pass;
 
     switch (first->type) {
-      case TT_INT:
-        if (snprintf(NULL, 0, "%ld", first->number) + 1 >= SIZE) { return pass; }
-
-        if (sprintf(buf, "%ld", first->number) < 0) { return pass; }
-
-        ascii_str_append(&pass, buf);
-        break;
+      case TT_INT: {
+        struct ascii_str long_as_str = long_to_str(first->number);
+        ascii_str_append(&pass, ascii_str_c_str(&long_as_str));
+        ascii_str_destroy(&long_as_str);
+      } break;
       case TT_STRING:
         ascii_str_append(&pass, ascii_str_c_str(&first->string));
         break;
       default:
-        return pass;
+        goto parse_password_end;
     }
 
     token_destroy(list_remove_first(tokens));
   } while (true);
 
+parse_password_end:
   return pass;
 }
 
@@ -151,6 +165,65 @@ quit_invalid:
   return (struct command){.command = CMD_INVALID};
 }
 
+static bool parse_ip(struct list *restrict tokens, struct ascii_str *restrict ip) {
+  enum ipv4_octets { IPV4_OCTETS = 4 };
+
+  struct ascii_str _ip = ascii_str_create(NULL, 0);
+
+  for (size_t i = 0; i < (size_t)IPV4_OCTETS; i++) {
+    struct ascii_str tmp;
+
+    struct token *token = list_peek_first(tokens);
+    if (!token || token->type != TT_INT) { goto parse_ip_cleanup; }
+
+    // invalid octet
+    if (token->number > UINT8_MAX) { goto parse_ip_cleanup; }
+
+    if (!parser_consume(tokens, TT_INT, &tmp)) { goto parse_ip_cleanup; }
+    ascii_str_append(&_ip, ascii_str_c_str(&tmp));
+    ascii_str_destroy(&tmp);
+
+    // don't try to consume a non existant trailing comma. ip should look like octet,octet,octet,octet and not
+    // octet,octet,octet,octet,
+    if (i == (size_t)IPV4_OCTETS - 1) break;
+    if (!parser_consume(tokens, TT_COMMA, NULL)) { goto parse_ip_cleanup; }
+    ascii_str_push(&_ip, '.');
+  }
+
+  *ip = _ip;
+  return true;
+parse_ip_cleanup:
+  ascii_str_destroy(&_ip);
+  return false;
+}
+
+static bool parse_port(struct list *restrict tokens, struct ascii_str *restrict port) {
+  enum port_octets { PORT_OCTETS = 2 };
+
+  struct ascii_str _port = ascii_str_create(NULL, 0);
+
+  for (size_t i = 0; i < (size_t)PORT_OCTETS; i++) {
+    struct ascii_str tmp;
+
+    if (!parser_consume(tokens, TT_INT, &tmp)) { goto parse_port_cleanup; }
+    ascii_str_append(&_port, ascii_str_c_str(&tmp));
+    ascii_str_destroy(&tmp);
+
+    if (i == (size_t)PORT_OCTETS - 1) break;
+    if (!parser_consume(tokens, TT_COMMA, NULL)) { goto parse_port_cleanup; }
+  }
+
+  // invalid port
+  // guarantee to contain a long as str
+  if (strtol(ascii_str_c_str(&_port), NULL, 10) > UINT16_MAX) { goto parse_port_cleanup; }
+
+  *port = _port;
+  return true;
+parse_port_cleanup:
+  ascii_str_destroy(&_port);
+  return false;
+}
+
 // PORT SPACE INT COMMA INT COMMA INT COMMA INT COMMA INT COMMA INT CRLF EOF
 // PORT 127,0,0,0,p1,p2 where p1 & p2 specify the port
 // the resulting tokens shall be h1.h2.h3.h4:p1p2 (e.g. 127.0.0.1:2020)
@@ -159,35 +232,19 @@ static struct command port(struct list *tokens) {
   if (!parser_consume(tokens, TT_PORT, NULL)) { goto port_invalid; }
   if (!parser_consume(tokens, TT_SPACE, NULL)) { goto port_invalid; }
 
-  struct ascii_str tmp;
-  struct ascii_str ip = ascii_str_create(NULL, 0);
-
   // construct ip
-  for (size_t i = 0; i < (size_t)IPV4_OCTETS; i++) {
-    if (!parser_consume(tokens, TT_INT, &tmp)) { goto ip_cleanup; }
-    ascii_str_append(&ip, ascii_str_c_str(&tmp));
-    ascii_str_destroy(&tmp);
-
-    // don't try to consume a non existant trailing comma. ip should look like octet,octet,octet,octet and not
-    // octet,octet,octet,octet,
-    if (i == (size_t)IPV4_OCTETS - 1) break;
-    if (!parser_consume(tokens, TT_COMMA, NULL)) { goto ip_cleanup; }
-    ascii_str_push(&ip, '.');
-  }
+  struct ascii_str ip;
+  if (!parse_ip(tokens, &ip)) { goto port_invalid; }
 
   // consume the comma separated ip and port
-  if (!parser_consume(tokens, TT_COMMA, NULL)) { goto ip_cleanup; }
+  if (!parser_consume(tokens, TT_COMMA, NULL)) { goto port_invalid; }
 
   // construct port
-  struct ascii_str port = ascii_str_create(NULL, 0);
-  for (size_t i = 0; i < (size_t)PORT_OCTETS; i++) {
-    if (!parser_consume(tokens, TT_INT, &tmp)) { goto port_cleanup; }
-    ascii_str_append(&port, ascii_str_c_str(&tmp));
-    ascii_str_destroy(&tmp);
+  struct ascii_str port;
+  if (!parse_port(tokens, &port)) { goto ip_cleanup; }
 
-    if (i == (size_t)IPV4_OCTETS - 1) break;
-    if (!parser_consume(tokens, TT_COMMA, NULL)) { goto port_cleanup; }
-  }
+  if (!parser_consume(tokens, TT_CRLF, NULL)) { goto port_cleanup; }
+  if (!parser_consume(tokens, TT_EOF, NULL)) { goto port_cleanup; }
 
   ascii_str_push(&ip, ':');
   ascii_str_append(&ip, ascii_str_c_str(&port));

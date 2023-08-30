@@ -10,6 +10,11 @@
     fprintf(stream, "%s %s:%d\n\t" fmt, __FILE__, __func__, __LINE__, __VA_ARGS__); \
   } while (0);
 
+#define LOG_STRIPPED(stream, fmt, ...)      \
+  do {                                      \
+    fprintf(stream, "\t" fmt, __VA_ARGS__); \
+  } while (0);
+
 static char const *cmd_type_name(enum command_type cmd) {
   switch (cmd) {
     case CMD_USER:
@@ -56,7 +61,7 @@ static char const *cmd_type_name(enum command_type cmd) {
 static void parse_valid_command_test(struct ascii_str *text) {
   assert(text);
 
-  LOG(stderr, "attempt to parse: %s\n", ascii_str_c_str(text));
+  LOG(stderr, "attempt to parse: %s", ascii_str_c_str(text));
 
   // given
   struct list tokens = lexer_lex(text);
@@ -64,7 +69,7 @@ static void parse_valid_command_test(struct ascii_str *text) {
   // when
   struct command cmd = parser_parse(&tokens);
 
-  LOG(stderr, "command: {%s, %s}\n", cmd_type_name(cmd.command), ascii_str_c_str(&cmd.arg));
+  LOG_STRIPPED(stderr, "command: {%s, %s}\n", cmd_type_name(cmd.command), ascii_str_c_str(&cmd.arg));
 
   // then
   assert(cmd.command != CMD_INVALID);
@@ -77,13 +82,15 @@ static void parse_valid_command_test(struct ascii_str *text) {
 static void parse_invalid_command_test(struct ascii_str *text) {
   assert(text);
 
-  LOG(stderr, "attempt to parse: %s\n", ascii_str_c_str(text));
+  LOG(stderr, "attempt to parse: %s", ascii_str_c_str(text));
 
   // given
   struct list tokens = lexer_lex(text);
 
   // when
   struct command cmd = parser_parse(&tokens);
+
+  LOG_STRIPPED(stderr, "command: {%s}\n", cmd_type_name(cmd.command));
 
   // then
   assert(cmd.command == CMD_INVALID);
@@ -95,13 +102,15 @@ static void parse_invalid_command_test(struct ascii_str *text) {
 static void parse_unsupported_command_test(struct ascii_str *text) {
   assert(text);
 
-  LOG(stderr, "attempt to parse: %s\n", ascii_str_c_str(text));
+  LOG(stderr, "attempt to parse: %s", ascii_str_c_str(text));
 
   // given
   struct list tokens = lexer_lex(text);
 
   // when
   struct command cmd = parser_parse(&tokens);
+
+  LOG_STRIPPED(stderr, "command: {%s}\n", cmd_type_name(cmd.command));
 
   // then
   assert(cmd.command == CMD_UNSUPPORTED);

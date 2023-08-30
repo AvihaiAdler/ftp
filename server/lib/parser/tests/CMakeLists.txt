@@ -38,12 +38,10 @@ foreach(test ${PARSER_SANITY_TESTS})
 endforeach()
 
 add_custom_command(TARGET parser_sanity
-  POST_BUILD
+  PRE_BUILD
   COMMAND ${CMAKE_COMMAND} ARGS -E make_directory ${CMAKE_CURRENT_BINARY_DIR}/commands
   COMMAND ${CMAKE_COMMAND} ARGS -E copy ${CMAKE_CURRENT_SOURCE_DIR}/commands/valid_commands
   ${CMAKE_CURRENT_SOURCE_DIR}/commands/invalid_commands
   ${CMAKE_CURRENT_SOURCE_DIR}/commands/unsupported_commands
   ${CMAKE_CURRENT_BINARY_DIR}/commands
-
-  # COMMAND ${CMAKE_COMMAND} ARGS -E copy_directory_if_different ${CMAKE_SOURCE_DIR}/commands ${CMAKE_BINARY_DIR}/commands
 )
