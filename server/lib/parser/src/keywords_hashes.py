@@ -16,8 +16,8 @@ def hash(command: str, seed: int, size: int, /) -> int:
     shortened = command[:2] + command[-2:]
 
     _hash = c_size_t(0)
-    for i in range(len(shortened)):
-        _hash = c_size_t((_hash.value << (i * 8)) | ord(shortened[i]))
+    for idx, char in enumerate(shortened):
+        _hash = c_size_t((_hash.value << (idx * 8)) | ord(char))
         _hash = c_size_t(seed * _hash.value)
 
     return _hash.value % size
@@ -103,4 +103,6 @@ if __name__ == "__main__":
     start = time.perf_counter()
     main()
     end = time.perf_counter()
-    print(f"execution time: {((end-start)//60)}:{math.floor((end - start)%60)}")
+    print(
+        f"execution time: {math.floor((end-start)//60)}:{math.floor((end - start)%60)}"
+    )
