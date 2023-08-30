@@ -1,0 +1,18 @@
+ACCT some_account
+SMNT some_file_system
+REIN
+TYPE A 8
+STRU F
+MODE S
+STOU
+APPE some_file
+ALLO 128
+REST
+ABOR
+NLST
+NLST some_directory
+SITE some_args
+SYST
+STAT
+HELP
+NOOP

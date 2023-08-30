@@ -30,6 +30,17 @@ struct command {
   struct ascii_str arg;
 };
 
+/**
+ * @brief parses a list of tokens into a `struct command`. takes ownership over `tokens`
+ *
+ * @param[in] tokens
+ * @return `struct command` the parsed command
+ */
 struct command parser_parse(struct list *tokens);
 
+/**
+ * @brief destroys a command
+ *
+ * @param[in] cmd the command to destroy
+ */
 void command_destroy(struct command *cmd);

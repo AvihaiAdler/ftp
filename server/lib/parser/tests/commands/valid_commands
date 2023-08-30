@@ -1,0 +1,17 @@
+USER some_user
+PASS 123456
+CWD some_directory
+CDUP
+QUIT
+PORT 127,0,0,1,20,20
+PASV
+RETR some_file
+STOR some_file
+RNFR some_file_name
+RNTO some_other_name
+DELE some_file
+RMD some_directory
+MKD some_directory_name
+PWD
+LIST some_directory
+LIST

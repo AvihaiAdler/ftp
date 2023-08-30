@@ -1,4 +1,5 @@
 #include "parser.h"
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "ascii_str.h"
@@ -7,7 +8,7 @@
 #define IPV4_OCTETS 4
 #define PORT_OCTETS 2
 
-static bool parser_consume(struct list const *restrict tokens, enum token_type type, struct ascii_str *restrict token) {
+static bool parser_consume(struct list *restrict tokens, enum token_type type, struct ascii_str *restrict token) {
   if (!tokens) return false;
 
   // necessary evil
@@ -27,9 +28,9 @@ static bool parser_consume(struct list const *restrict tokens, enum token_type t
 }
 
 // USER SPACE STRING CRLF EOF
-static struct command user(struct list const *tokens) {
+static struct command user(struct list *tokens) {
   if (!tokens) { goto user_invalid; }
-  if (!parser_consume(tokens, TT_PASS, NULL)) { goto user_invalid; }
+  if (!parser_consume(tokens, TT_USER, NULL)) { goto user_invalid; }
   if (!parser_consume(tokens, TT_SPACE, NULL)) { goto user_invalid; }
 
   struct ascii_str username;
@@ -45,15 +46,52 @@ user_invalid:
   return (struct command){.command = CMD_INVALID};
 }
 
-// PASS SPACE STRING CRLF EOF
-static struct command pass(struct list const *tokens) {
-  if (!tokens) { goto pass_invalid; }
+static void token_destroy(struct token *token) {
+  if (!token) return;
 
-  if (!parser_consume(tokens, TT_USER, NULL)) { goto pass_invalid; }
+  if (token->type == TT_STRING) { ascii_str_destroy(&token->string); }
+  free(token);
+}
+
+static struct ascii_str parse_password(struct list *restrict tokens) {
+  enum local_size {
+    SIZE = 128,
+  };
+
+  char buf[SIZE];
+  struct ascii_str pass = ascii_str_create(NULL, 0);
+  do {
+    struct token *first = list_peek_first(tokens);
+    if (!first) return pass;
+
+    switch (first->type) {
+      case TT_INT:
+        if (snprintf(NULL, 0, "%ld", first->number) + 1 >= SIZE) { return pass; }
+
+        if (sprintf(buf, "%ld", first->number) < 0) { return pass; }
+
+        ascii_str_append(&pass, buf);
+        break;
+      case TT_STRING:
+        ascii_str_append(&pass, ascii_str_c_str(&first->string));
+        break;
+      default:
+        return pass;
+    }
+
+    token_destroy(list_remove_first(tokens));
+  } while (true);
+
+  return pass;
+}
+
+// PASS SPACE STRING CRLF EOF
+static struct command pass(struct list *tokens) {
+  if (!tokens) { goto pass_invalid; }
+  if (!parser_consume(tokens, TT_PASS, NULL)) { goto pass_invalid; }
   if (!parser_consume(tokens, TT_SPACE, NULL)) { goto pass_invalid; }
 
-  struct ascii_str password;
-  if (!parser_consume(tokens, TT_STRING, &password)) { goto pass_invalid; }
+  struct ascii_str password = parse_password(tokens);
   if (!parser_consume(tokens, TT_CRLF, NULL)) { goto pass_cleanup; }
   if (!parser_consume(tokens, TT_EOF, NULL)) { goto pass_cleanup; }
 
@@ -66,7 +104,7 @@ pass_invalid:
 }
 
 // CWD SPACE STRING CRLF EOF
-static struct command cwd(struct list const *tokens) {
+static struct command cwd(struct list *tokens) {
   if (!tokens) { goto cwd_invalid; }
   if (!parser_consume(tokens, TT_CWD, NULL)) { goto cwd_invalid; }
   if (!parser_consume(tokens, TT_SPACE, NULL)) { goto cwd_invalid; }
@@ -85,7 +123,7 @@ cwd_invalid:
 }
 
 // CDUP CRLF EOF
-static struct command cdup(struct list const *tokens) {
+static struct command cdup(struct list *tokens) {
   if (!tokens) { goto cdup_invalid; }
   if (!parser_consume(tokens, TT_CDUP, NULL)) { goto cdup_invalid; }
   if (!parser_consume(tokens, TT_CRLF, NULL)) { goto cdup_invalid; }
@@ -100,7 +138,7 @@ cdup_invalid:
 }
 
 // QUIT CRLF EOF
-static struct command quit(struct list const *tokens) {
+static struct command quit(struct list *tokens) {
   if (!tokens) { goto quit_invalid; }
   if (!parser_consume(tokens, TT_QUIT, NULL)) { goto quit_invalid; }
   if (!parser_consume(tokens, TT_CRLF, NULL)) { goto quit_invalid; }
@@ -116,7 +154,7 @@ quit_invalid:
 // PORT SPACE INT COMMA INT COMMA INT COMMA INT COMMA INT COMMA INT CRLF EOF
 // PORT 127,0,0,0,p1,p2 where p1 & p2 specify the port
 // the resulting tokens shall be h1.h2.h3.h4:p1p2 (e.g. 127.0.0.1:2020)
-static struct command port(struct list const *tokens) {
+static struct command port(struct list *tokens) {
   if (!tokens) { goto port_invalid; }
   if (!parser_consume(tokens, TT_PORT, NULL)) { goto port_invalid; }
   if (!parser_consume(tokens, TT_SPACE, NULL)) { goto port_invalid; }
@@ -165,7 +203,7 @@ port_invalid:
 }
 
 // PASV CRLF EOF
-static struct command pasv(struct list const *tokens) {
+static struct command pasv(struct list *tokens) {
   if (!tokens) { goto pasv_invalid; }
   if (!parser_consume(tokens, TT_PASV, NULL)) { goto pasv_invalid; }
   if (!parser_consume(tokens, TT_CRLF, NULL)) { goto pasv_invalid; }
@@ -179,7 +217,7 @@ pasv_invalid:
 }
 
 // RETR SPACE STRING CRLF EOF
-static struct command retr(struct list const *tokens) {
+static struct command retr(struct list *tokens) {
   if (!tokens) { goto retr_invalid; }
   if (!parser_consume(tokens, TT_RETR, NULL)) { goto retr_invalid; }
   if (!parser_consume(tokens, TT_SPACE, NULL)) { goto retr_invalid; }
@@ -198,7 +236,7 @@ retr_invalid:
 }
 
 // STOR SPACE STRING CRLF EOF
-static struct command stor(struct list const *tokens) {
+static struct command stor(struct list *tokens) {
   if (!tokens) { goto stor_invalid; }
   if (!parser_consume(tokens, TT_STOR, NULL)) { goto stor_invalid; }
   if (!parser_consume(tokens, TT_SPACE, NULL)) { goto stor_invalid; }
@@ -217,7 +255,7 @@ stor_invalid:
 }
 
 // RNFR SPACE STRING CRLF EOF
-static struct command rnfr(struct list const *tokens) {
+static struct command rnfr(struct list *tokens) {
   if (!tokens) { goto rnfr_invalid; }
   if (!parser_consume(tokens, TT_RNFR, NULL)) { goto rnfr_invalid; }
   if (!parser_consume(tokens, TT_SPACE, NULL)) { goto rnfr_invalid; }
@@ -236,7 +274,7 @@ rnfr_invalid:
 }
 
 // RNTO SPACE STRING CRLF EOF
-static struct command rnto(struct list const *tokens) {
+static struct command rnto(struct list *tokens) {
   if (!tokens) { goto rnto_invalid; }
   if (!parser_consume(tokens, TT_RNTO, NULL)) { goto rnto_invalid; }
   if (!parser_consume(tokens, TT_SPACE, NULL)) { goto rnto_invalid; }
@@ -255,7 +293,7 @@ rnto_invalid:
 }
 
 // DELE SPACE STRING CRLF EOF
-static struct command dele(struct list const *tokens) {
+static struct command dele(struct list *tokens) {
   if (!tokens) { goto dele_invalid; }
   if (!parser_consume(tokens, TT_DELE, NULL)) { goto dele_invalid; }
   if (!parser_consume(tokens, TT_SPACE, NULL)) { goto dele_invalid; }
@@ -274,7 +312,7 @@ dele_invalid:
 }
 
 // RMD SPACE STRING CRLF EOF
-static struct command rmd(struct list const *tokens) {
+static struct command rmd(struct list *tokens) {
   if (!tokens) { goto rmd_invalid; }
   if (!parser_consume(tokens, TT_RMD, NULL)) { goto rmd_invalid; }
   if (!parser_consume(tokens, TT_SPACE, NULL)) { goto rmd_invalid; }
@@ -293,7 +331,7 @@ rmd_invalid:
 }
 
 // MKD SPACE STRING CRLF EOF
-static struct command mkd(struct list const *tokens) {
+static struct command mkd(struct list *tokens) {
   if (!tokens) { goto mkd_invalid; }
   if (!parser_consume(tokens, TT_MKD, NULL)) { goto mkd_invalid; }
   if (!parser_consume(tokens, TT_SPACE, NULL)) { goto mkd_invalid; }
@@ -312,7 +350,7 @@ mkd_invalid:
 }
 
 // PWD CRLF EOF
-static struct command pwd(struct list const *tokens) {
+static struct command pwd(struct list *tokens) {
   if (!tokens) { goto pwd_invalid; }
   if (!parser_consume(tokens, TT_PWD, NULL)) { goto pwd_invalid; }
   if (!parser_consume(tokens, TT_CRLF, NULL)) { goto pwd_invalid; }
@@ -324,56 +362,89 @@ pwd_invalid:
   return (struct command){.command = CMD_INVALID};
 }
 
-// TODO: implementation required
 // LIST SPACE STRING CRLF EOF
 // or
 // LIST CRLF EOF
-static struct command list(struct list const *tokens) {
+static struct command list(struct list *tokens) {
   if (!tokens) { goto list_invalid; }
-  (void)tokens;
+  if (!parser_consume(tokens, TT_LIST, NULL)) { goto list_invalid; }
 
-  return (struct command){.command = CMD_LIST, .arg = ascii_str_create(NULL, 0)};
+  struct token *t = list_peek_first(tokens);
+  if (!t) { goto list_invalid; }
+
+  struct ascii_str path;
+  if (t->type == TT_SPACE) {
+    parser_consume(tokens, TT_SPACE, NULL);
+    if (!parser_consume(tokens, TT_STRING, &path)) { goto list_invalid; }
+  } else {
+    path = ascii_str_create(NULL, 0);
+  }
+
+  if (!parser_consume(tokens, TT_CRLF, NULL)) { goto list_cleanup; }
+  if (!parser_consume(tokens, TT_EOF, NULL)) { goto list_cleanup; }
+
+  return (struct command){.command = CMD_LIST, .arg = path};
+list_cleanup:
+  ascii_str_destroy(&path);
 list_invalid:
   return (struct command){.command = CMD_INVALID};
 }
 
 struct command parser_parse(struct list *tokens) {
-  if (!tokens || list_empty(tokens)) goto invalid_command;
+  struct command cmd = {.command = CMD_INVALID};
 
   struct token *token = list_peek_first(tokens);
+  if (!token) goto parser_cleanup;  // list is empty or NULL
+
   switch (token->type) {
     case TT_USER:
-      return user(tokens);
+      cmd = user(tokens);
+      break;
     case TT_PASS:
-      return pass(tokens);
+      cmd = pass(tokens);
+      break;
     case TT_CWD:
-      return cwd(tokens);
+      cmd = cwd(tokens);
+      break;
     case TT_CDUP:
-      return cdup(tokens);
+      cmd = cdup(tokens);
+      break;
     case TT_QUIT:
-      return quit(tokens);
+      cmd = quit(tokens);
+      break;
     case TT_PORT:
-      return port(tokens);
+      cmd = port(tokens);
+      break;
     case TT_PASV:
-      return pasv(tokens);
+      cmd = pasv(tokens);
+      break;
     case TT_RETR:
-      return retr(tokens);
+      cmd = retr(tokens);
+      break;
     case TT_STOR:
-      return stor(tokens);
+      cmd = stor(tokens);
+      break;
     case TT_RNFR:
-      return rnfr(tokens);
+      cmd = rnfr(tokens);
+      break;
     case TT_RNTO:
-      return rnto(tokens);
+      cmd = rnto(tokens);
+      break;
     case TT_DELE:
-      return dele(tokens);
+      cmd = dele(tokens);
+      break;
     case TT_RMD:
-      return rmd(tokens);
+      cmd = rmd(tokens);
+      break;
     case TT_MKD:
-      return mkd(tokens);
+      cmd = mkd(tokens);
+      break;
     case TT_PWD:
-      return pwd(tokens);
+      cmd = pwd(tokens);
+      break;
     case TT_LIST:
-      return list(tokens);
+      cmd = list(tokens);
+      break;
     case TT_ACCT:  // start of fallthrough
     case TT_SMNT:
     case TT_REIN:
@@ -391,13 +462,15 @@ struct command parser_parse(struct list *tokens) {
     case TT_STAT:
     case TT_HELP:
     case TT_NOOP:  // end of fallthrough
-      return (struct command){.command = CMD_UNSUPPORTED};
+      cmd = (struct command){.command = CMD_UNSUPPORTED};
+      break;
     default:
-      goto invalid_command;
+      break;
   }
 
-invalid_command:
-  return (struct command){.command = CMD_INVALID};
+parser_cleanup:
+  list_destroy(tokens);
+  return cmd;
 }
 
 void command_destroy(struct command *cmd) {
