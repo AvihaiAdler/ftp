@@ -15,7 +15,7 @@ char const *keywords[TOKEN_MAPPING_SIZE] = {
   [TT_STAT] = "stat", [TT_HELP] = "help", [TT_NOOP] = "noop"};
 
 /*
- * unlike ispunct '_' isn't considered a puncuation
+ * unlike ispunct '_' isn't considered a puncuation for the lexer
  * returns true for !"#$%&'()*+,-./:;<=>?@[\]^`{|}~
  */
 static bool is_punct(int c) {
@@ -101,7 +101,6 @@ struct list lexer_lex(struct ascii_str *text) {
     list_create(sizeof(struct token), token_destroy);  // vec_create(sizeof(struct token), token_destroy);
 
   if (ascii_str_empty(text)) {  // checks if !text as well
-    // vec_push(&tokens, &(struct token){.type = TT_EOF});
     (void)list_append(&tokens, &(struct token){.type = TT_EOF});
     return tokens;
   }
@@ -128,11 +127,9 @@ struct list lexer_lex(struct ascii_str *text) {
       }
     }
 
-    // vec_push(&tokens, &token);
     (void)list_append(&tokens, &token);
   }
 
-  // vec_push(&tokens, &(struct token){.type = TT_EOF});
   (void)list_append(&tokens, &(struct token){.type = TT_EOF});
 
   return tokens;
