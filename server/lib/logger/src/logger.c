@@ -1,5 +1,6 @@
 #include "logger.h"
 
+#include <signal.h>
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -11,6 +12,7 @@
 
 struct logger {
   enum { TYPE_SYSTEM = 0, TYPE_FILE } stream_type;
+  int signal;  // no writes after initialization. shouldn't cause a data race
   FILE *stream;
   mtx_t stream_mtx;
 };
@@ -29,26 +31,26 @@ static void get_time(struct logger *restrict logger, char *restrict time_rep, si
 }
 
 // still single threaded at this point
-struct logger *logger_init(char const *restrict file_name) {
-  struct logger *log_info = calloc(1, sizeof *log_info);
-  if (!log_info) { return NULL; }
+struct logger *logger_create(char const *restrict file_name, int signal) {
+  struct logger *log = calloc(1, sizeof *log);
+  if (!log) { return NULL; }
 
   FILE *log_fp = stdout;
   if (file_name) {
-    log_info->stream_type = TYPE_FILE;
+    log->stream_type = TYPE_FILE;
     log_fp = fopen(file_name, "a");
   }
 
-  log_info->stream = log_fp;
+  log->stream = log_fp;
+  log->signal = signal;
 
-  bool ret = mtx_init(&log_info->stream_mtx, mtx_plain) == thrd_success;
-  if (!ret) {
-    if (log_info->stream_type == TYPE_FILE) fclose(log_info->stream);
-    free(log_info);
+  if (mtx_init(&log->stream_mtx, mtx_plain) != thrd_success) {
+    if (log->stream_type == TYPE_FILE) fclose(log->stream);
+    free(log);
     return NULL;
   }
 
-  return log_info;
+  return log;
 }
 
 static const char *get_log_level(enum level level) {
@@ -66,24 +68,52 @@ static const char *get_log_level(enum level level) {
   }
 }
 
+static bool block_signals(sigset_t *restrict sigset_cache, int signum) {
+  if (!sigset_cache) return false;
+
+  sigset_t block;
+  if (sigemptyset(&block) != 0) return false;
+  if (sigaddset(&block, signum) != 0) return false;
+
+  return pthread_sigmask(SIG_BLOCK, &block, sigset_cache) == 0;
+}
+
+static bool unblock_signals(sigset_t *restrict sigset_cache) {
+  if (!sigset_cache) return false;
+
+  return pthread_sigmask(SIG_SETMASK, sigset_cache, NULL) == 0;
+}
+
 void logger_log(struct logger *restrict logger, enum level level, char const *restrict fmt, ...) {
   if (!logger) return;
+
+  sigset_t cache;
+  if (logger->signal != SIG_NONE) {
+    if (!block_signals(&cache, logger->signal)) return;
+  }
 
   char time_buf[SIZE] = {0};
   get_time(logger, time_buf, sizeof time_buf);
 
-  mtx_lock(&logger->stream_mtx);  // assume never fails
-  fprintf(logger->stream, "[%s] : [%s] ", time_buf, get_log_level(level));
-
   va_list args;
   va_start(args, fmt);
+  while (mtx_lock(&logger->stream_mtx) != thrd_success) {
+    continue;
+  }
+
+  fprintf(logger->stream, "[%s] : [%s] ", time_buf, get_log_level(level));
   // not the best idea to have the user control the format string, but oh well
   vfprintf(logger->stream, fmt, args);
+  fflush(logger->stream);
+
+  while (mtx_unlock(&logger->stream_mtx) != thrd_success) {
+    continue;
+  }
   va_end(args);
 
-  fprintf(logger->stream, "\n");
-
-  mtx_unlock(&logger->stream_mtx);  // assume never fails
+  if (logger->signal != SIG_NONE) {
+    (void)unblock_signals(&cache);  // assume naver fails
+  }
 }
 
 void logger_destroy(struct logger *restrict logger) {

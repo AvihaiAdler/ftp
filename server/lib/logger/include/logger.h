@@ -1,6 +1,14 @@
 #pragma once
 #include <stdbool.h>
 
+/**
+ * @file logger.h
+ * @brief a simple logger for multithreaded environment
+ * note that `logger` only blocks `SIGUSR1` during logging. this means that
+ */
+
+#define SIG_NONE -1
+
 #define LOG(logger, level, fmt, ...)                                                           \
   do {                                                                                         \
     logger_log(logger, level, "in %s\t%s:%d " fmt, __func__, __FILE__, __LINE__, __VA_ARGS__); \
@@ -20,12 +28,15 @@ enum level {
   INFO,
 };
 
-/* initializes the logger 'object'. must be called before any use of the logger.
- * expects a valid file_name. if the file doesn't exists - the logger will
- * create one for you. file_name may be NULL - in such case the logger will
- * output to stdout. returns a pointer to a logger object on success, NULL
- * otherwise */
-struct logger *logger_init(char const *restrict file_name);
+/**
+ * @brief creates a logger
+ *
+ * @param file_name the file to write into or `NULL`. if `NULL` `logger` will writes to `stdout`
+ * @param signal a signal to block during the internal logging process. if `signal` is `SIG_NONE` no singals will be
+ * blocked
+ * @return `struct logger*`
+ */
+struct logger *logger_create(char const *restrict file_name, int signal);
 
 /* logs a message. fmt is a string which may contains the specifiers used by fprintf. if such specifiers found - expects
  * matching number of argumnets */

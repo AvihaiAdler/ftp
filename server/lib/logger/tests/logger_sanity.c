@@ -17,17 +17,17 @@ int log_stuff(void *arg) {
   for (size_t i = 0; i < t_args->boundry; i++) {
     long rand = lrand48();
     // logger_log(t_args->logger, i % 3 ? INFO : WARN, "thread [%ld]: [index:%zu] %ld", thrd_current(), i, rand);
-    LOG(t_args->logger, i % 3 ? INFO : WARN, "thread [%ld]: [index:%zu] %ld", thrd_current(), i, rand);
+    LOG(t_args->logger, i % 3 ? INFO : WARN, "thread [%ld]: [index:%zu] %ld\n", thrd_current(), i, rand);
   }
   return 0;
 }
 
 int main(void) {
-  struct logger *logger = logger_init("log.bin");
+  struct logger *logger = logger_create("log.bin", SIG_NONE);
   // bool ret = log_init(NULL);
   assert(logger);
   // logger_log(logger, INFO, "test start");
-  LOG(logger, INFO, "%s", "test start");
+  LOG(logger, INFO, "%s", "test start\n");
 
   thrd_t threads[SIZE] = {0};
   size_t amount = sizeof threads / sizeof *threads;
@@ -45,7 +45,7 @@ int main(void) {
   }
 
   // logger_log(logger, INFO, "test end");
-  LOG(logger, INFO, "%s", "test end");
+  LOG(logger, INFO, "%s", "test end\n");
   logger_destroy(logger);
   return 0;
 }
