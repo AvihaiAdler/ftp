@@ -1,7 +1,6 @@
-set(THREADPOOL_UNIT_TESTS thread_pool_sanity)
+set(THREADPOOL_UNIT_TESTS thread_pool_sanity_simple thread_pool_sanity)
 
 foreach(test ${THREADPOOL_UNIT_TESTS})
-  
   add_executable(${test})
   target_sources(${test}
     PRIVATE ${test}.c
@@ -13,24 +12,27 @@ foreach(test ${THREADPOOL_UNIT_TESTS})
     PRIVATE c_std_11
   )
 
-  target_compile_options(${test} 
-    PRIVATE 
-    -Wall 
-    -Wextra 
-    -Wpedantic 
+  target_compile_definitions(${test}
+    PRIVATE -D_XOPEN_SOURCE=700
+  )
+
+  target_compile_options(${test}
+    PRIVATE
+    -Wall
+    -Wextra
+    -Wpedantic
     -Og
     -g
     -fsanitize=address,undefined
   )
 
-  target_link_options(${test} 
-    PRIVATE 
+  target_link_options(${test}
+    PRIVATE
     -fsanitize=address,undefined
   )
 
-  target_link_libraries(${test} 
-    PRIVATE thread_pool 
+  target_link_libraries(${test}
+    PRIVATE thread_pool
     PRIVATE logger
   )
-
 endforeach()

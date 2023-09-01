@@ -1,60 +1,312 @@
 #include <assert.h>
-#include <stdio.h>
+#include <signal.h>
 #include <stdlib.h>
+#include <string.h>
 #include <threads.h>
 #include <time.h>
+#include "ascii_str.h"
 #include "logger.h"
 #include "thread_pool.h"
 
-#define SIZE 128
-#define TASKS_COUNT 100
+#define LINE                                                                                                           \
+  "------------------------------------------------------------------------------------------------------------------" \
+  "------"
 
-struct args {
-  int i;
+struct task_args_simple {
   struct logger *logger;
+  struct ascii_str *string;
 };
 
-void destroy_task(void *_task) {
-  struct task *task = _task;
-  if (task) free(task->args);
+struct task_args_long {
+  unsigned sec;
+  struct logger *logger;
+  struct ascii_str string;
+};
+
+static int generate_random(int min, int max) {
+  int range = max - min;
+  double rand_val = rand() / (1.0 + RAND_MAX);
+  return (int)(rand_val * range + min);
 }
 
-// simulates a long task
-int handle_task(void *arg) {
-  if (!arg) return 1;
+static struct ascii_str rand_string(size_t len) {
+  char const *alphabet = "abcdefghijklmnopqrstuvwxyz";
+  size_t alphabet_len = strlen(alphabet);
 
-  struct args *args = arg;
+  struct ascii_str str = ascii_str_create(NULL, 0);
+  for (size_t i = 0; i < len; i++) {
+    int rand_idx = generate_random(0, alphabet_len);
+    ascii_str_push(&str, alphabet[rand_idx]);
+  }
 
-  struct timespec delay = {.tv_sec = 1, .tv_nsec = 0};
-  struct timespec remains = {0};
+  return str;
+}
 
-  if (args->logger) { logger_log(args->logger, INFO, "thread %lu executing task %d", thrd_current(), args->i); }
-  nanosleep(&delay, &remains);
+static void string_destroy(void *_str) {
+  struct ascii_str *str = _str;
+  ascii_str_destroy(str);
+}
+
+static struct thread_pool *before(int thread_count) {
+  struct thread_pool *tp = tp_create(thread_count);
+  return tp;
+}
+
+static void after(struct thread_pool *tp) {
+  tp_destroy(tp);
+}
+
+static int simple_task_handler(void *_args) {
+  struct task_args_simple *args = _args;
+  LOG(args->logger, INFO, "\n\tworker %ld: %s\n", thrd_current(), ascii_str_c_str(args->string));
+
   return 0;
 }
 
-int main(void) {
-  struct logger *logger = logger_init("threads_pool_test.log");
-  assert(logger);
+static void simple_task_destroyer(void *_task) {
+  struct task *task = _task;
+  struct task_args_simple *args = task->args;
 
-  struct thread_pool *thread_pool = thread_pool_create(20);
-  assert(thread_pool);
+  ascii_str_destroy(args->string);
+}
 
-  logger_log(logger, INFO, "test start");
-  for (uint8_t i = 0; i < (uint8_t)TASKS_COUNT; i++) {
-    struct args *args = malloc(sizeof *args);
-    args->i = i;
-    args->logger = logger;
+static void simple_task_destroyer_heap(void *_task) {
+  struct task *task = _task;
+  struct task_args_simple *args = task->args;
 
-    struct task task = {.args = args, .destroy_task = destroy_task, .handle_task = handle_task};
-    assert(thread_pool_add_task(thread_pool, &task));
+  free(args);
+}
+
+static int long_task_handler(void *_args) {
+  struct task_args_long *args = _args;
+  LOG(args->logger, INFO, "\n\tworker %ld starts a computional heavy task\n", thrd_current());
+
+  struct timespec reminaing = {0};
+  nanosleep(&(struct timespec){.tv_sec = args->sec}, &reminaing);
+
+  LOG(args->logger, INFO, "\n\tworker %ld return the result: %s\n", thrd_current(), ascii_str_c_str(&args->string));
+
+  return 0;
+}
+
+static void long_task_destroyer(void *_task) {
+  struct task *task = _task;
+  struct task_args_long *args = task->args;
+
+  ascii_str_destroy(&args->string);
+}
+
+static void tp_create_invalid_test(struct logger *restrict logger) {
+  LOG(logger, INFO, "\n\ttesting %d threads\n", 0);
+  // given
+  // when
+  struct thread_pool *tp = before(0);
+
+  // then
+  assert(!tp);
+}
+
+static void tp_add_task_test(struct logger *restrict logger, int thread_count) {
+  LOG(logger, INFO, "\n\ttesting %d threads\n", thread_count);
+
+  // given
+  struct thread_pool *tp = before(thread_count);
+  assert(tp);
+
+  struct ascii_str str = ascii_str_create("hello, world!", STR_C_STR);
+  struct task_args_simple args = {.logger = logger, .string = &str};
+
+  // when
+  bool ret = tp_add_task(
+    tp,
+    &(struct task){.args = &args, .destroy_task = simple_task_destroyer, .handle_task = simple_task_handler});
+
+  // then
+  assert(ret);
+
+  struct timespec remaining = {0};
+  nanosleep(&(struct timespec){.tv_sec = 2}, &remaining);
+
+  // cleanup
+  after(tp);
+}
+
+static void tp_terminate_early_test(struct logger *restrict logger, int threads_count, size_t tasks_count) {
+  LOG(logger, INFO, "\n\ttesting %zu tasks with %d threads\n", tasks_count, threads_count);
+
+  // given
+  struct thread_pool *tp = before(threads_count);
+  assert(tp);
+  struct vec strings = vec_create(sizeof(struct ascii_str), string_destroy);
+
+  // when
+  for (size_t i = 0; i < tasks_count; i++) {
+    struct ascii_str str = rand_string(100);
+    assert(vec_push(&strings, &str));
   }
 
-  struct timespec wait = {.tv_sec = 2, .tv_nsec = 0};
-  struct timespec remains;
-  nanosleep(&wait, &remains);
+  for (size_t i = 0; i < tasks_count; i++) {
 
-  thread_pool_destroy(thread_pool);
-  logger_log(logger, INFO, "test end");
+    struct task_args_simple *args = malloc(sizeof *args);
+    assert(args);
+    *args = (struct task_args_simple){.logger = logger, .string = vec_at(&strings, i)};
+
+    bool ret = tp_add_task(tp,
+                           &(struct task){.args = args,
+                                          .destroy_task = simple_task_destroyer_heap,
+                                          .handle_task = simple_task_handler,
+                                          .id = i});
+
+    // then
+    assert(ret);
+  }
+
+  LOG(logger, INFO, "\n\tworker %ld (main) terminating early\n", thrd_current());
+
+  // cleanup
+  after(tp);
+  vec_destroy(&strings);
+}
+
+static void tp_add_multiple_tasks_test(struct logger *restrict logger, size_t count, int threads_count) {
+  LOG(logger, INFO, "\n\ttesting %zu tasks with %d threads\n", count, threads_count);
+
+  // given
+  struct thread_pool *tp = before(threads_count);
+  assert(tp);
+  struct vec strings = vec_create(sizeof(struct ascii_str), string_destroy);
+
+  // when
+  for (size_t i = 0; i < count; i++) {
+    struct ascii_str str = rand_string(100);
+    assert(vec_push(&strings, &str));
+  }
+
+  for (size_t i = 0; i < count; i++) {
+
+    struct task_args_simple *args = malloc(sizeof *args);
+    assert(args);
+    *args = (struct task_args_simple){.logger = logger, .string = vec_at(&strings, i)};
+
+    bool ret = tp_add_task(tp,
+                           &(struct task){.args = args,
+                                          .destroy_task = simple_task_destroyer_heap,
+                                          .handle_task = simple_task_handler,
+                                          .id = i});
+
+    // then
+    assert(ret);
+  }
+
+  LOG(logger, INFO, "\n\tworker %ld (main) entering sleep\n", thrd_current());
+  // might terminate early depends on `count`. to checks early termination pass a high `count`
+  struct timespec remaining = {0};
+  nanosleep(&(struct timespec){.tv_sec = 5}, &remaining);
+
+  LOG(logger, INFO, "\n\tworker %ld (main) woken up destroying the pool\n", thrd_current());
+
+  // cleanup
+  after(tp);
+  vec_destroy(&strings);
+}
+
+static void tp_add_task_and_abort_test(struct logger *restrict logger, unsigned worker_delay, unsigned manager_delay) {
+  // given
+  struct thread_pool *tp = before(1);
+  assert(tp);
+
+  // when
+  struct ascii_str str = rand_string(100);
+  struct task_args_long args = {.sec = worker_delay, .logger = logger, .string = str};
+  bool ret = tp_add_task(tp,
+                         &(struct task){.args = &args,
+                                        .destroy_task = long_task_destroyer,
+                                        .handle_task = long_task_handler,
+                                        .id = INT16_MAX});
+  assert(ret);
+
+  LOG(logger, INFO, "\n\tworker %ld (main) entering sleep\n", thrd_current());
+  // pass low `manager_delay` to trigger the abort
+  struct timespec remaining = {0};
+  nanosleep(&(struct timespec){.tv_sec = manager_delay}, &remaining);
+
+  LOG(logger, INFO, "\n\tworker %ld (main) woken up trying to abort (id: %zu)\n", thrd_current(), (size_t)INT16_MAX);
+
+  assert(tp_abort_task(tp, INT16_MAX));
+
+  LOG(logger, INFO, "\n\tworker %ld (main) successfully aborted (id: %zu)\n", thrd_current(), (size_t)INT16_MAX);
+
+  // cleanup
+  after(tp);
+}
+
+static void tp_add_task_abort_then_add_another_test(struct logger *restrict logger,
+                                                    unsigned worker_delay,
+                                                    unsigned manager_delay) {
+
+  // given
+  struct thread_pool *tp = before(1);
+  assert(tp);
+
+  // when
+  struct ascii_str str = rand_string(100);
+  struct task_args_long args = {.sec = worker_delay, .logger = logger, .string = str};
+  bool ret = tp_add_task(tp,
+                         &(struct task){.args = &args,
+                                        .destroy_task = long_task_destroyer,
+                                        .handle_task = long_task_handler,
+                                        .id = INT16_MAX});
+  assert(ret);
+
+  LOG(logger, INFO, "\n\tworker %ld (main) entering sleep\n", thrd_current());
+  // pass low `manager_delay` to trigger the abort
+  struct timespec remaining = {0};
+  nanosleep(&(struct timespec){.tv_sec = manager_delay}, &remaining);
+
+  LOG(logger, INFO, "\n\tworker %ld (main) woken up trying to abort (id: %zu)\n", thrd_current(), (size_t)INT16_MAX);
+
+  assert(tp_abort_task(tp, INT16_MAX));
+
+  LOG(logger,
+      INFO,
+      "\n\tworker %ld (main) woken up successfully aborted (id: %zu)\n",
+      thrd_current(),
+      (size_t)INT16_MAX);
+
+  LOG(logger, INFO, "\n\tworker %ld (main) adding a new task\n", thrd_current());
+  // adding one more task without aborting to esure the thread pool still works
+  str = rand_string(100);
+  args = (struct task_args_long){.sec = worker_delay, .logger = logger, .string = str};
+  ret = tp_add_task(
+    tp,
+    &(struct task){.args = &args, .destroy_task = long_task_destroyer, .handle_task = long_task_handler, .id = 0});
+  assert(ret);
+
+  LOG(logger, INFO, "\n\tworker %ld (main) terminating early\n", thrd_current());
+  // cleanup
+  after(tp);
+}
+
+int main(void) {
+  srand((unsigned)time(NULL));
+  struct logger *logger = logger_create("tp_sanity.log", SIGUSR1);
+  assert(logger);
+
+  tp_create_invalid_test(logger);
+  tp_add_task_test(logger, 10);
+  tp_add_task_test(logger, 20);
+  tp_add_task_test(logger, 50);
+  tp_add_task_test(logger, 100);
+
+  tp_terminate_early_test(logger, 1, 1000);
+
+  tp_add_multiple_tasks_test(logger, 10, 10);
+  tp_add_multiple_tasks_test(logger, 10, 50);
+  tp_add_multiple_tasks_test(logger, 100, 10);
+  tp_add_multiple_tasks_test(logger, 100, 50);
+
+  tp_add_task_and_abort_test(logger, 5, 1);
+  tp_add_task_abort_then_add_another_test(logger, 5, 1);
+
   logger_destroy(logger);
 }

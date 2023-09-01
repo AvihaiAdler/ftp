@@ -2,23 +2,25 @@
 /**
  * @file thread_pool.h
  */
-#include <stdatomic.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
-#include <threads.h>
-#include "list.h"
-#include "vec.h"
-
-struct thread_pool;
 
 /**
  * @brief task object
  */
 struct task {
+  size_t id;
   void *args;
   int (*handle_task)(void *arg);
-  void (*destroy_task)(void *arg);
+  void (*destroy_task)(void *task);
 };
+
+/**
+ * @brief
+ * NOTE: the pool uses `SIGUSR1` to signal threads to 'abort' their current task. one must not raise said signal
+ */
+struct thread_pool;
 
 /**
  * @brief creates a thread pool with `threads_count` threads
@@ -26,14 +28,14 @@ struct task {
  * @param[in] threads_count the number of threads to spawn
  * @return `struct thread_pool`
  */
-struct thread_pool *thread_pool_create(uint8_t threads_count);
+struct thread_pool *tp_create(uint8_t threads_count);
 
 /**
  * @brief terminates all threads gracefully and destroys a thread pool
  *
  * @param[in] thread_pool
  */
-void thread_pool_destroy(struct thread_pool *thread_pool);
+void tp_destroy(struct thread_pool *thread_pool);
 
 /**
  * @brief adds a task to be executes asynchronously
@@ -43,4 +45,25 @@ void thread_pool_destroy(struct thread_pool *thread_pool);
  * @return `true` if the operation succeded
  * @return `false` if the operation failed
  */
-bool thread_pool_add_task(struct thread_pool *restrict thread_pool, struct task const *restrict task);
+bool tp_add_task(struct thread_pool *restrict thread_pool, struct task const *restrict task);
+
+/**
+ * @brief aborts a task if said task is currently being executed
+ *
+ * NOTE: this function is expensive. the calling thread might block for a long time
+ * NOTE: the use of this function impose the following restrictions on the task one wish to abort:
+ * 1. any critical section within `task::handle_task` must first block `SIGUSR1` then aquire the mutex / semaphore. the
+ * process must be repeated in reverse before exiting said section. failure to comply with this restriction might cause
+ * a deadlock
+ * 2. any heap allocation within `task::handle_task` which isn't saved into `task::args` in some way - will not be
+ * cleaned up.
+ * 3. using non signal-safe functions without blocking `SIGUSR1` might cause weird or even undefined behavior. for a
+ * list of signal safe functions for linux please refer to https://man7.org/linux/man-pages/man7/signal-safety.7.html.
+ * 4. `tp_abort_task` is signal-safe & thread safe
+ *
+ * @param[in] thread_pool
+ * @param[in] task_id
+ * @return true
+ * @return false
+ */
+bool tp_abort_task(struct thread_pool *restrict thread_pool, size_t task_id);

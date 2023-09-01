@@ -1,11 +1,16 @@
 add_library(thread_pool)
 
 target_sources(thread_pool
-  PRIVATE src/thread_pool.c
+  PRIVATE
+  src/thread_pool.c
 )
 
 target_compile_features(thread_pool
   PRIVATE c_std_11
+)
+
+target_compile_definitions(thread_pool
+  PRIVATE -D_XOPEN_SOURCE=700
 )
 
 target_compile_options(thread_pool
