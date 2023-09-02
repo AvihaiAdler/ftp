@@ -20,7 +20,7 @@ struct tuple {
 
 static void test_create_table(sqlite3 *restrict db) {
   int ret = 0;
-  struct ascii_str query = ascii_str_from_str(QUERY_CREATE);
+  struct ascii_str query = ascii_str_create(QUERY_CREATE, STR_C_STR);
 
   struct hash_table ht = dbm_query(db, &ret, &query, 0);
 
@@ -33,7 +33,7 @@ static void test_create_table(sqlite3 *restrict db) {
 
 static void test_insert_values(sqlite3 *restrict db, char const *restrict col_name, char const *restrict col_data) {
   int ret = 0;
-  struct ascii_str query = ascii_str_from_str(QUERY_INSERT);
+  struct ascii_str query = ascii_str_create(QUERY_INSERT, STR_C_STR);
 
   struct hash_table ht = dbm_query(db, &ret, &query, 2, col_name, col_data);
 
@@ -46,7 +46,7 @@ static void test_insert_values(sqlite3 *restrict db, char const *restrict col_na
 
 static void test_select_all(sqlite3 *restrict db, char const *restrict data) {
   int ret = 0;
-  struct ascii_str query = ascii_str_from_str(QUERY_SELECT_ALL);
+  struct ascii_str query = ascii_str_create(QUERY_SELECT_ALL, STR_C_STR);
 
   struct hash_table ht = dbm_query(db, &ret, &query, 0);
 
