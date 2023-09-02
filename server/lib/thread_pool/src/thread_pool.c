@@ -61,10 +61,11 @@ static struct context context;  // IMPORTANT
 static void sig_handler(int signum) {
   if (signum != SIGUSR1) return;
 
+  int prev;
   int idx = atomic_load(&context.id);
-  while (!atomic_compare_exchange_weak(&context.id, &idx, INVALID_IDX)) {
-    continue;
-  }
+  do {
+    prev = idx;
+  } while (!atomic_compare_exchange_weak(&context.id, &prev, INVALID_IDX));
 
   if (idx >= 0 && idx < context.count) siglongjmp(context.buffers[idx], 0);
 }
@@ -362,12 +363,10 @@ bool tp_abort_task(struct thread_pool *restrict thread_pool, size_t task_id) {
     if (curr->properties.state.value == STATE_BUSY && curr->properties.state.task_id == task_id) {
 
       // signal the thread to abort:
-      int idx = INVALID_IDX;
-
-      // while(context.id == INVALID_IDX) {try: context.id = i}
-      while (atomic_compare_exchange_weak(&context.id, &idx, i)) {
-        continue;
-      }
+      int idx;
+      do {
+        idx = INVALID_IDX;
+      } while (!atomic_compare_exchange_weak(&context.id, &idx, i));
 
       while (mtx_unlock(&curr->properties.state.mtx) != thrd_success) {
         continue;

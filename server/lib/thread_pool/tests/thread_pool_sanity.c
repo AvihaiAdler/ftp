@@ -8,10 +8,6 @@
 #include "logger.h"
 #include "thread_pool.h"
 
-#define LINE                                                                                                           \
-  "------------------------------------------------------------------------------------------------------------------" \
-  "------"
-
 struct task_args_simple {
   struct logger *logger;
   struct ascii_str *string;
@@ -242,49 +238,78 @@ static void tp_add_task_and_abort_test(struct logger *restrict logger, unsigned 
 
 static void tp_add_task_abort_then_add_another_test(struct logger *restrict logger,
                                                     unsigned worker_delay,
-                                                    unsigned manager_delay) {
+                                                    unsigned manager_delay,
+                                                    uint8_t threads_count) {
+  LOG(logger,
+      INFO,
+      "\n\t testing %hhd threads (threads delay: %u, manager delay: %u)\n",
+      threads_count,
+      worker_delay,
+      manager_delay);
 
   // given
-  struct thread_pool *tp = before(1);
+  struct thread_pool *tp = before(threads_count);
   assert(tp);
 
+  struct vec args = vec_create(sizeof(struct task_args_long), NULL);
+  assert(vec_resize(&args, threads_count * 2) >= (size_t)threads_count);
+
   // when
-  struct ascii_str str = rand_string(100);
-  struct task_args_long args = {.sec = worker_delay, .logger = logger, .string = str};
-  bool ret = tp_add_task(tp,
-                         &(struct task){.args = &args,
-                                        .destroy_task = long_task_destroyer,
-                                        .handle_task = long_task_handler,
-                                        .id = INT16_MAX});
-  assert(ret);
+
+  for (size_t i = 0; i < threads_count; i++) {
+    struct ascii_str str = rand_string(100);
+    vec_push(&args, &(struct task_args_long){.logger = logger, .sec = worker_delay, .string = str});
+  }
+  // struct task_args_long args = {.sec = worker_delay, .logger = logger, .string = str};
+
+  for (size_t i = 0; i < threads_count; i++) {
+    void *task_args = vec_at(&args, i);
+    bool ret = tp_add_task(tp,
+                           &(struct task){.args = task_args,
+                                          .destroy_task = long_task_destroyer,
+                                          .handle_task = long_task_handler,
+                                          .id = i});
+    assert(ret);
+  }
 
   LOG(logger, INFO, "\n\tworker %ld (main) entering sleep\n", thrd_current());
   // pass low `manager_delay` to trigger the abort
   struct timespec remaining = {0};
   nanosleep(&(struct timespec){.tv_sec = manager_delay}, &remaining);
 
-  LOG(logger, INFO, "\n\tworker %ld (main) woken up trying to abort (id: %zu)\n", thrd_current(), (size_t)INT16_MAX);
+  LOG(logger, INFO, "\n\tworker %ld (main) woken up trying to abort tasks\n", thrd_current());
+  for (size_t i = 0; i < threads_count; i++) {
+    assert(tp_abort_task(tp, i));
+  }
+  LOG(logger, INFO, "\n\tworker %ld (main) woken up successfully aborted all tasks\n", thrd_current());
 
-  assert(tp_abort_task(tp, INT16_MAX));
-
-  LOG(logger,
-      INFO,
-      "\n\tworker %ld (main) woken up successfully aborted (id: %zu)\n",
-      thrd_current(),
-      (size_t)INT16_MAX);
-
-  LOG(logger, INFO, "\n\tworker %ld (main) adding a new task\n", thrd_current());
   // adding one more task without aborting to esure the thread pool still works
-  str = rand_string(100);
-  args = (struct task_args_long){.sec = worker_delay, .logger = logger, .string = str};
-  ret = tp_add_task(
-    tp,
-    &(struct task){.args = &args, .destroy_task = long_task_destroyer, .handle_task = long_task_handler, .id = 0});
-  assert(ret);
+  LOG(logger, INFO, "\n\tworker %ld (main) adding new tasks\n", thrd_current());
+  for (size_t i = 0; i < threads_count; i++) {
+    struct ascii_str str = rand_string(100);
+    vec_push(&args, &(struct task_args_long){.logger = logger, .sec = worker_delay, .string = str});
+  }
 
+  for (size_t i = 0; i < threads_count; i++) {
+    void *task_args = vec_at(&args, i + threads_count);
+    assert(task_args);
+    bool ret = tp_add_task(tp,
+                           &(struct task){.args = task_args,
+                                          .destroy_task = long_task_destroyer,
+                                          .handle_task = long_task_handler,
+                                          .id = i});
+    assert(ret);
+  }
+
+  // sleep for a tiny while to ensure all threads started working on a task. this is performed since the data inside the
+  // vector isn't going to be cleaned up (i.e. the vec & the thread pool shares the ownership of the data - which is bad
+  // in all cases - however for this test - it should be fine)
+  remaining = (struct timespec){0};
+  nanosleep(&(struct timespec){.tv_sec = worker_delay / 2}, &remaining);
   LOG(logger, INFO, "\n\tworker %ld (main) terminating early\n", thrd_current());
   // cleanup
   after(tp);
+  vec_destroy(&args);
 }
 
 int main(void) {
@@ -306,7 +331,10 @@ int main(void) {
   tp_add_multiple_tasks_test(logger, 100, 50);
 
   tp_add_task_and_abort_test(logger, 5, 1);
-  tp_add_task_abort_then_add_another_test(logger, 5, 1);
+  tp_add_task_abort_then_add_another_test(logger, 5, 1, 1);
+  tp_add_task_abort_then_add_another_test(logger, 5, 1, 2);
+  tp_add_task_abort_then_add_another_test(logger, 5, 1, 10);
+  tp_add_task_abort_then_add_another_test(logger, 5, 1, 50);
 
   logger_destroy(logger);
 }

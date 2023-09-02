@@ -7,13 +7,18 @@
 #include <stdint.h>
 
 /**
- * @brief task object
+ * @struct a task object
  */
 struct task {
   size_t id;
-  void *args;
-  int (*handle_task)(void *arg);
-  void (*destroy_task)(void *task);
+  void *args; /**< the arguments require to execute the task casted to a `void *`. the argument must live long enough
+                 for the task to use it. prefer having the task own `arg` with heap allocation if possible */
+
+  int (*handle_task)(void *arg); /**< the task to execute. `args` will be passed into it. i.e. the thread will execute
+                                    the task in this manner: `task::handle_task(task::args)`*/
+  void (*destroy_task)(void *task); /**< the destructor of a task. this destruct is intended to cleanup `task::args`
+                                       only! one must not try to `free` the `task` itself in any way. the thread will
+                                       call the destructor in this manner: `task::destroy_task(task)` */
 };
 
 /**
