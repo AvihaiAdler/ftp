@@ -52,11 +52,9 @@ static void after(struct thread_pool *tp) {
   tp_destroy(tp);
 }
 
-static int simple_task_handler(void *_args) {
+static void simple_task_handler(void *_args) {
   struct task_args_simple *args = _args;
   LOG(args->logger, INFO, "\n\tworker %ld: %s\n", thrd_current(), ascii_str_c_str(args->string));
-
-  return 0;
 }
 
 static void simple_task_destroyer(void *_task) {
@@ -73,7 +71,7 @@ static void simple_task_destroyer_heap(void *_task) {
   free(args);
 }
 
-static int long_task_handler(void *_args) {
+static void long_task_handler(void *_args) {
   struct task_args_long *args = _args;
   LOG(args->logger, INFO, "\n\tworker %ld starts a computional heavy task\n", thrd_current());
 
@@ -81,8 +79,6 @@ static int long_task_handler(void *_args) {
   nanosleep(&(struct timespec){.tv_sec = args->sec}, &reminaing);
 
   LOG(args->logger, INFO, "\n\tworker %ld return the result: %s\n", thrd_current(), ascii_str_c_str(&args->string));
-
-  return 0;
 }
 
 static void long_task_destroyer(void *_task) {

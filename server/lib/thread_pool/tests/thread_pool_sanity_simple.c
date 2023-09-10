@@ -20,8 +20,8 @@ void destroy_task(void *_task) {
 }
 
 // simulates a long task
-int handle_task(void *arg) {
-  if (!arg) return 1;
+void handle_task(void *arg) {
+  if (!arg) return;
 
   struct args *args = arg;
 
@@ -30,7 +30,6 @@ int handle_task(void *arg) {
 
   if (args->logger) { logger_log(args->logger, INFO, "thread %lu executing task %d\n", thrd_current(), args->i); }
   nanosleep(&delay, &remains);
-  return 0;
 }
 
 int main(void) {

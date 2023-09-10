@@ -56,18 +56,18 @@ struct thread_pool {
   struct list _tasks;  // list<task>
 };
 
-static struct context context;  // IMPORTANT
+static struct context global_context;  // IMPORTANT
 
 static void sig_handler(int signum) {
   if (signum != SIGUSR1) return;
 
   int prev;
-  int idx = atomic_load(&context.id);
+  int idx = atomic_load(&global_context.id);
   do {
     prev = idx;
-  } while (!atomic_compare_exchange_weak(&context.id, &prev, INVALID_IDX));
+  } while (!atomic_compare_exchange_weak(&global_context.id, &prev, INVALID_IDX));
 
-  if (idx >= 0 && idx < context.count) siglongjmp(context.buffers[idx], 0);
+  if (idx >= 0 && idx < global_context.count) siglongjmp(global_context.buffers[idx], 0);
 }
 
 static bool thread_block_signal(int signum) {
@@ -122,7 +122,7 @@ static void update_state(struct thread_properties *properties, int state, size_t
   }
 }
 
-int thread_launch(void *arg) {
+static int thread_launch(void *arg) {
   thread_block_signal(SIGUSR1);
   if (!arg) return 1;
 
@@ -165,7 +165,7 @@ int thread_launch(void *arg) {
     thread_unblock_signal(SIGUSR1);
 
     // handle the task
-    if (sigsetjmp(context.buffers[properties->id], 1) == 0) {
+    if (sigsetjmp(global_context.buffers[properties->id], 1) == 0) {
       if (task->handle_task) task->handle_task(task->args);
     }
 
@@ -211,7 +211,7 @@ void tp_destroy(struct thread_pool *thread_pool) {
   terminate(&thread_pool->_threads, &thread_pool->_tasks_cnd);
   tp_destroy_internal(thread_pool);
 
-  free(context.buffers);
+  free(global_context.buffers);
 
   (void)thread_unblock_signal(SIGUSR1);
 }
@@ -253,11 +253,11 @@ static bool install_handler(int signum) {
 
 // global init
 static bool context_init(uint8_t count) {
-  atomic_init(&context.id, INVALID_IDX);
+  atomic_init(&global_context.id, INVALID_IDX);
 
-  context.count = count;
-  context.buffers = malloc(count * sizeof *context.buffers);
-  return context.buffers != NULL;
+  global_context.count = count;
+  global_context.buffers = malloc(count * sizeof *global_context.buffers);
+  return global_context.buffers != NULL;
 }
 
 struct thread_pool *tp_create(uint8_t threads_count) {
@@ -312,7 +312,7 @@ mtx_cleanup:
   mtx_destroy(&tp->_tasks_mtx);
   free(tp);
 context_cleanup:
-  free(context.buffers);
+  free(global_context.buffers);
 invalid_thread_pool:
   return NULL;
 }
@@ -366,7 +366,7 @@ bool tp_abort_task(struct thread_pool *restrict thread_pool, size_t task_id) {
       int idx;
       do {
         idx = INVALID_IDX;
-      } while (!atomic_compare_exchange_weak(&context.id, &idx, i));
+      } while (!atomic_compare_exchange_weak(&global_context.id, &idx, i));
 
       while (mtx_unlock(&curr->properties.state.mtx) != thrd_success) {
         continue;
@@ -385,4 +385,12 @@ bool tp_abort_task(struct thread_pool *restrict thread_pool, size_t task_id) {
 
   (void)thread_unblock_signal(SIGUSR1);
   return false;
+}
+
+bool tp_critical_section_begin(void) {
+  return thread_block_signal(SIGUSR1);
+}
+
+bool tp_critical_section_end(void) {
+  return thread_unblock_signal(SIGUSR1);
 }
