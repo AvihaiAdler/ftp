@@ -9,7 +9,7 @@
 enum token_type {
   TT_INT = TOKEN_MAPPING_SIZE,
   TT_PUNCT,
-  TT_COMMA, /* the only punctuation we care about is a '.' the rest are generalized*/
+  TT_COMMA, /* the only punctuation we care about is a ',' the rest are generalized*/
   TT_STRING,
   TT_SPACE,
   TT_CRLF,
