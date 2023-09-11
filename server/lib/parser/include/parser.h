@@ -21,6 +21,7 @@ enum command_type {
   CMD_MKD,
   CMD_PWD,
   CMD_LIST,
+  CMD_ABOR,
   CMD_INVALID,
   CMD_UNSUPPORTED,
 };

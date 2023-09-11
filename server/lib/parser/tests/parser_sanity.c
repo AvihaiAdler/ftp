@@ -49,6 +49,8 @@ static char const *cmd_type_name(enum command_type cmd) {
       return "PWD";
     case CMD_LIST:
       return "LIST";
+    case CMD_ABOR:
+      return "ABOR";
     case CMD_INVALID:
       return "INVALID";
     case CMD_UNSUPPORTED:

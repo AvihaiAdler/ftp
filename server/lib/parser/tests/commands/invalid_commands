@@ -43,3 +43,4 @@ LIST some_directory some_text
 LIST 12346
 The quick brown fox jumps over the lazy dog
 USER USER USRE
+ABOR some_text

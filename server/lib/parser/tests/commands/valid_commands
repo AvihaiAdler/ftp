@@ -18,3 +18,4 @@ MKD some_directory_name
 PWD
 LIST some_directory
 LIST
+ABOR

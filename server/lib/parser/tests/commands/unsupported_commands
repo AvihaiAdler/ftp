@@ -8,7 +8,6 @@ STOU
 APPE some_file
 ALLO 128
 REST
-ABOR
 NLST
 NLST some_directory
 SITE some_args

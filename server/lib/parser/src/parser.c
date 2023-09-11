@@ -447,6 +447,19 @@ list_invalid:
   return (struct command){.command = CMD_INVALID};
 }
 
+// ABOR CRLF EOF
+static struct command abor(struct list *tokens) {
+  if (!tokens) { goto abor_invalid; }
+
+  if (!parser_consume(tokens, TT_ABOR, NULL)) { goto abor_invalid; }
+  if (!parser_consume(tokens, TT_CRLF, NULL)) { goto abor_invalid; }
+  if (!parser_consume(tokens, TT_EOF, NULL)) { goto abor_invalid; }
+
+  return (struct command){.command = CMD_ABOR, .arg = ascii_str_create(NULL, 0)};
+abor_invalid:
+  return (struct command){.command = CMD_INVALID};
+}
+
 struct command parser_parse(struct list *tokens) {
   struct command cmd = {.command = CMD_INVALID};
 
@@ -502,6 +515,9 @@ struct command parser_parse(struct list *tokens) {
     case TT_LIST:
       cmd = list(tokens);
       break;
+    case TT_ABOR:
+      cmd = abor(tokens);
+      break;
     case TT_ACCT:  // start of fallthrough
     case TT_SMNT:
     case TT_REIN:
@@ -512,7 +528,6 @@ struct command parser_parse(struct list *tokens) {
     case TT_APPE:
     case TT_ALLO:
     case TT_REST:
-    case TT_ABOR:
     case TT_NLST:
     case TT_SITE:
     case TT_SYST:
