@@ -1,7 +1,6 @@
 #pragma once
 
 #include "ascii_str.h"
-#include "hash_table.h"
 #include "list.h"
 
 enum command_type {
