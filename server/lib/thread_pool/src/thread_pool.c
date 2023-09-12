@@ -94,14 +94,6 @@ static bool process_block_signal(int signum) {
   return sigprocmask(SIG_BLOCK, &sig_to_block, NULL) == 0;
 }
 
-static bool process_unblock_signal(int signum) {
-  sigset_t sig_to_block;
-  if (sigemptyset(&sig_to_block) != 0) return false;
-  if (sigaddset(&sig_to_block, signum) != 0) return false;
-
-  return sigprocmask(SIG_UNBLOCK, &sig_to_block, NULL) == 0;
-}
-
 static void update_state(struct thread_properties *properties, int state, size_t task_id) {
   while (mtx_lock(&properties->state.mtx) != thrd_success) {
     continue;
