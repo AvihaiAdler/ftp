@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <threads.h>
-#include "list.h"
+#include "queue.h"
 #include "vec.h"
 
 #define INVALID_IDX -1
@@ -25,7 +25,7 @@ struct thread_properties {
     mtx_t *mtx;
     cnd_t *cnd;
 
-    struct list *list;  // may be written to if `tasks::mtx` is acquired
+    struct queue *queue;  // may be written to if `tasks::mtx` is acquired
   } tasks;
 
   struct {
@@ -53,7 +53,7 @@ struct thread_pool {
   // assumed to be thread safe. changing its underlying elements (the threads) must be done in a thread safe manner
   struct vec _threads;  // vec<thread>
 
-  struct list _tasks;  // list<task>
+  struct queue _tasks;  // queue<task>
 };
 
 static struct context global_context;  // IMPORTANT
@@ -128,7 +128,7 @@ static int thread_launch(void *arg) {
     }
 
     // there are no tasks. release the lock and wait
-    while (list_empty(properties->tasks.list)) {
+    while (queue_empty(properties->tasks.queue)) {
       while (cnd_wait(properties->tasks.cnd, properties->tasks.mtx) != thrd_success) {
         continue;
       }
@@ -144,25 +144,26 @@ static int thread_launch(void *arg) {
     }
 
     // get a task & release the lock
-    volatile struct task *task = list_remove_first(properties->tasks.list);
+    struct task task = {0};
+    enum ds_error ret = queue_dequeue(properties->tasks.queue, &task);
 
     while (mtx_unlock(properties->tasks.mtx) != thrd_success) {
       continue;
     }
 
-    if (!task) continue;
+    // if (!task) continue;
+    if (ret != DS_VALUE_OK) continue;
 
     // update state
-    update_state((struct thread_properties *)properties, STATE_BUSY, task->id);
+    update_state((struct thread_properties *)properties, STATE_BUSY, task.id);
     thread_unblock_signal(SIGUSR1);
 
     // handle the task
     if (sigsetjmp(global_context.buffers[properties->id], 1) == 0) {
-      if (task->handle_task) task->handle_task(task->args);
+      if (task.handle_task) task.handle_task(task.args);
     }
 
-    if (task->destroy_task) task->destroy_task((struct task *)task);
-    free((struct task *)task);
+    if (task.destroy_task) task.destroy_task(&task);
 
     // update state
     update_state((struct thread_properties *)properties, STATE_IDLE, 0);
@@ -190,7 +191,7 @@ static void terminate(struct vec *threads, cnd_t *cnd) {
 }
 
 static void tp_destroy_internal(struct thread_pool *tp) {
-  list_destroy(&tp->_tasks);
+  queue_destroy(&tp->_tasks);
   vec_destroy(&tp->_threads);
   cnd_destroy(&tp->_tasks_cnd);
   mtx_destroy(&tp->_tasks_mtx);
@@ -222,7 +223,7 @@ static void thread_destroy(void *_thread) {
 
 static bool thread_create(struct thread *restrict thread,
                           uint8_t id,
-                          struct list *restrict tasks,
+                          struct queue *restrict tasks,
                           mtx_t *restrict tasks_mtx,
                           cnd_t *restrict tasks_cnd) {
   if (!thread) return false;
@@ -230,7 +231,7 @@ static bool thread_create(struct thread *restrict thread,
 
   *thread = (struct thread){.id = 0,
                             .properties = {.id = id,
-                                           .tasks = {.cnd = tasks_cnd, .mtx = tasks_mtx, .list = tasks},
+                                           .tasks = {.cnd = tasks_cnd, .mtx = tasks_mtx, .queue = tasks},
                                            .state = {.task_id = 0, .value = STATE_IDLE}}};
 
   atomic_init(&thread->properties.terminate, false);
@@ -270,7 +271,7 @@ struct thread_pool *tp_create(uint8_t threads_count) {
   tp->_threads = vec_create(sizeof(struct thread), thread_destroy);
   vec_reserve(&tp->_threads, threads_count);
 
-  tp->_tasks = list_create(sizeof(struct task), task_destroy);
+  tp->_tasks = queue_create(sizeof(struct task), task_destroy);
 
   for (uint8_t i = 0; i < threads_count; i++) {
     struct thread thread;
@@ -319,20 +320,20 @@ bool tp_add_task(struct thread_pool *restrict thread_pool, struct task const *re
     continue;
   }
 
-  bool ret = list_append(&thread_pool->_tasks, task);
+  enum ds_error ret = queue_enqueue(&thread_pool->_tasks, task);
 
   while (mtx_unlock(&thread_pool->_tasks_mtx) != thrd_success) {
     continue;
   }
 
-  if (ret) {
+  if (ret == DS_OK) {
     while (cnd_broadcast(&thread_pool->_tasks_cnd) != thrd_success) {
       continue;
     }
   }
 
   (void)thread_unblock_signal(SIGUSR1);
-  return ret;
+  return ret == DS_OK;
 }
 
 // guaratnee to abort only threads marked as BUSY. i.e. the thread shouldn't block / unblock SIGUSR1 before / after
