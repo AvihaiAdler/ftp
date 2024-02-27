@@ -1,16 +1,9 @@
 #include "task_args.h"
 #include <stdlib.h>
 
-struct task_args {
-  mtx_t *sessions_mtx;
-  struct vec *sessions;
-  struct logger *logger;
-  sqlite3 *db;
-  struct command cmd;
-};
-
-struct task_args *task_args_create(mtx_t *restrict sessions_mtx,
-                                   struct vec *restrict sessions,
+struct task_args *task_args_create(struct ascii_str id,
+                                   mtx_t *restrict sessions_mtx,
+                                   struct hash_table *restrict sessions,
                                    struct logger *restrict logger,
                                    sqlite3 *restrict db,
                                    struct command cmd) {
@@ -20,8 +13,12 @@ struct task_args *task_args_create(mtx_t *restrict sessions_mtx,
   struct task_args *args = malloc(sizeof *args);
   if (!args) return NULL;
 
-  *args =
-    (struct task_args){.sessions_mtx = sessions_mtx, .db = db, .logger = logger, .sessions = sessions, .cmd = cmd};
+  *args = (struct task_args){.id = id,
+                             .sessions_mtx = sessions_mtx,
+                             .db = db,
+                             .logger = logger,
+                             .sessions = sessions,
+                             .cmd = cmd};
   return args;
 }
 

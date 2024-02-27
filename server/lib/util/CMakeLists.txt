@@ -4,7 +4,6 @@ target_sources(util
   PRIVATE
   src/algorithm.c
   src/session.c
-  src/task_args.c
   src/util.c
 )
 
@@ -36,8 +35,5 @@ find_library(threads
 
 target_link_libraries(util
   PRIVATE ds
-  PRIVATE logger
-  PRIVATE dbm
   PRIVATE ${threads}
-  PRIVATE parser
 )

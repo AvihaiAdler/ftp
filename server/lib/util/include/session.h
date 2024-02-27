@@ -31,10 +31,11 @@ struct session {
   struct ascii_str ip;
   struct ascii_str port;
 
-  struct ascii_str working_dir; /**< the root directory. 'user space' is considered to be <working_dir>/<user_name>.
-                                   working_dir better be an absolute path*/
   struct ascii_str username;
   struct ascii_str password;
+
+  struct ascii_str working_dir; /**< the root directory. 'user space' is considered to be <working_dir>/<user_name>.
+                                   working_dir better be an absolute path*/
   struct ascii_str current_dir;
 };
 

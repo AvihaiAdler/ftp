@@ -9,13 +9,13 @@
 #include "util.h"
 #include "vec.h"
 
+_Atomic(bool) global_terminate;
+
 void sigint_handler(int signum) {
   (void)signum;
 
   atomic_store(&global_terminate, true);
 }
-
-_Atomic(bool) global_terminate;
 
 int main(int argc, char *argv[]) {
   /*
