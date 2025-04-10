@@ -63,9 +63,7 @@ static void sig_handler(int signum) {
 
   int prev;
   int idx = atomic_load(&global_context.id);
-  do {
-    prev = idx;
-  } while (!atomic_compare_exchange_weak(&global_context.id, &prev, INVALID_IDX));
+  do { prev = idx; } while (!atomic_compare_exchange_weak(&global_context.id, &prev, INVALID_IDX));
 
   if (idx >= 0 && idx < global_context.count) siglongjmp(global_context.buffers[idx], 0);
 }
@@ -95,9 +93,7 @@ static bool process_block_signal(int signum) {
 }
 
 static void update_state(struct thread_properties *properties, int state, size_t task_id) {
-  while (mtx_lock(&properties->state.mtx) != thrd_success) {
-    continue;
-  }
+  while (mtx_lock(&properties->state.mtx) != thrd_success) { continue; }
 
   switch (state) {
     case STATE_BUSY:  // fallthrough
@@ -109,9 +105,7 @@ static void update_state(struct thread_properties *properties, int state, size_t
       break;
   }
 
-  while (mtx_unlock(&properties->state.mtx) != thrd_success) {
-    continue;
-  }
+  while (mtx_unlock(&properties->state.mtx) != thrd_success) { continue; }
 }
 
 static int thread_launch(void *arg) {
@@ -123,21 +117,15 @@ static int thread_launch(void *arg) {
   // as long as the thread shouldn't terminate
   while (!atomic_load(&properties->terminate)) {
     // try to get a task
-    while (mtx_lock(properties->tasks.mtx) != thrd_success) {
-      continue;
-    }
+    while (mtx_lock(properties->tasks.mtx) != thrd_success) { continue; }
 
     // there are no tasks. release the lock and wait
     while (queue_empty(properties->tasks.queue)) {
-      while (cnd_wait(properties->tasks.cnd, properties->tasks.mtx) != thrd_success) {
-        continue;
-      }
+      while (cnd_wait(properties->tasks.cnd, properties->tasks.mtx) != thrd_success) { continue; }
 
       // woken up but should terminate - release lock & terminate
       if (atomic_load(&properties->terminate)) {
-        while (mtx_unlock(properties->tasks.mtx) != thrd_success) {
-          continue;
-        }
+        while (mtx_unlock(properties->tasks.mtx) != thrd_success) { continue; }
 
         goto thread_exit;
       }
@@ -147,9 +135,7 @@ static int thread_launch(void *arg) {
     struct task task = {0};
     enum ds_error ret = queue_dequeue(properties->tasks.queue, &task);
 
-    while (mtx_unlock(properties->tasks.mtx) != thrd_success) {
-      continue;
-    }
+    while (mtx_unlock(properties->tasks.mtx) != thrd_success) { continue; }
 
     // if (!task) continue;
     if (ret != DS_VALUE_OK) continue;
@@ -181,9 +167,7 @@ static void terminate(struct vec *threads, cnd_t *cnd) {
     atomic_store_explicit(&curr->properties.terminate, true, memory_order_seq_cst);
   }
 
-  while (cnd_broadcast(cnd) != thrd_success) {
-    continue;
-  }
+  while (cnd_broadcast(cnd) != thrd_success) { continue; }
   for (size_t i = 0; i < vec_size(threads); i++) {
     struct thread *curr = vec_at(threads, i);
     thrd_join(curr->id, NULL);
@@ -316,20 +300,14 @@ bool tp_add_task(struct thread_pool *restrict thread_pool, struct task const *re
 
   if (!thread_block_signal(SIGUSR1)) return false;
 
-  while (mtx_lock(&thread_pool->_tasks_mtx) != thrd_success) {
-    continue;
-  }
+  while (mtx_lock(&thread_pool->_tasks_mtx) != thrd_success) { continue; }
 
   enum ds_error ret = queue_enqueue(&thread_pool->_tasks, task);
 
-  while (mtx_unlock(&thread_pool->_tasks_mtx) != thrd_success) {
-    continue;
-  }
+  while (mtx_unlock(&thread_pool->_tasks_mtx) != thrd_success) { continue; }
 
   if (ret == DS_OK) {
-    while (cnd_broadcast(&thread_pool->_tasks_cnd) != thrd_success) {
-      continue;
-    }
+    while (cnd_broadcast(&thread_pool->_tasks_cnd) != thrd_success) { continue; }
   }
 
   (void)thread_unblock_signal(SIGUSR1);
@@ -349,21 +327,14 @@ bool tp_abort_task(struct thread_pool *restrict thread_pool, size_t task_id) {
       continue;
     }
 
-    while (mtx_lock(&curr->properties.state.mtx) != thrd_success) {
-      continue;
-    }
+    while (mtx_lock(&curr->properties.state.mtx) != thrd_success) { continue; }
 
     if (curr->properties.state.value == STATE_BUSY && curr->properties.state.task_id == task_id) {
-
       // signal the thread to abort:
       int idx;
-      do {
-        idx = INVALID_IDX;
-      } while (!atomic_compare_exchange_weak(&global_context.id, &idx, i));
+      do { idx = INVALID_IDX; } while (!atomic_compare_exchange_weak(&global_context.id, &idx, i));
 
-      while (mtx_unlock(&curr->properties.state.mtx) != thrd_success) {
-        continue;
-      }
+      while (mtx_unlock(&curr->properties.state.mtx) != thrd_success) { continue; }
 
       bool ret = pthread_kill(curr->id, SIGUSR1) == 0;
       (void)thread_unblock_signal(SIGUSR1);
@@ -371,9 +342,7 @@ bool tp_abort_task(struct thread_pool *restrict thread_pool, size_t task_id) {
       return ret;
     }
 
-    while (mtx_unlock(&curr->properties.state.mtx) != thrd_success) {
-      continue;
-    }
+    while (mtx_unlock(&curr->properties.state.mtx) != thrd_success) { continue; }
   }
 
   (void)thread_unblock_signal(SIGUSR1);

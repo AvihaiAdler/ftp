@@ -8,7 +8,6 @@ struct session session_create(struct ascii_str *restrict ip,
                               struct ascii_str *restrict password,
                               struct ascii_str *restrict working_dir,
                               int control_sockfd) {
-
   if (!working_dir || ascii_str_empty(working_dir)) goto session_create_invalid;
   if (!username || ascii_str_empty(username)) goto session_create_invalid;
   if (!password) *password = ascii_str_create(NULL, 0);

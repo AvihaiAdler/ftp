@@ -43,9 +43,7 @@ static struct token token_space(char const **ptr) {
     return (struct token){.type = TT_CRLF};
   }
 
-  for (; isspace(*curr) && *curr != '\r'; curr++) {
-    continue;
-  }
+  for (; isspace(*curr) && *curr != '\r'; curr++) { continue; }
 
   *ptr = curr - 1;
 
@@ -67,9 +65,7 @@ static struct ascii_str token_string(char const **ptr) {
   char const *start = *ptr;
   char const *tmp = *ptr;
 
-  for (; *tmp && (isalpha(*tmp) || *tmp == '_'); tmp++) {
-    continue;
-  }
+  for (; *tmp && (isalpha(*tmp) || *tmp == '_'); tmp++) { continue; }
 
   *ptr = tmp - 1;
   struct ascii_str token_str = ascii_str_create(start, tmp - start);
@@ -89,9 +85,7 @@ static size_t hash(struct ascii_str *token_str, size_t seed, size_t limit) {
   memcpy(buf + 2, ascii_str_c_str(token_str) + ascii_str_len(token_str) - 2, 2);
 
   size_t _hash = 0;
-  for (size_t i = 0; i < sizeof buf; i++) {
-    _hash = ((_hash << (i * 8)) | (size_t)buf[i]) * seed;
-  }
+  for (size_t i = 0; i < sizeof buf; i++) { _hash = ((_hash << (i * 8)) | (size_t)buf[i]) * seed; }
 
   return _hash % limit;
 }

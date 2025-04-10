@@ -89,15 +89,11 @@ char *match(char *restrict haystack, size_t haystack_len, char const *restrict n
     size_t memory = 0;
     while (pos + needle_len <= haystack_len) {
       size_t i = MAX(local_period, memory) + 1;
-      while (i < needle_len && needle[i] == haystack[i + pos]) {
-        i++;
-      }
+      while (i < needle_len && needle[i] == haystack[i + pos]) { i++; }
 
       if (i >= needle_len) {
         i = local_period;
-        while (i > memory && needle[i] == haystack[pos + i]) {
-          i--;
-        }
+        while (i > memory && needle[i] == haystack[pos + i]) { i--; }
 
         if (i <= memory) return haystack + pos;
         pos += period;
@@ -112,15 +108,11 @@ char *match(char *restrict haystack, size_t haystack_len, char const *restrict n
     size_t pos = 0;
     while (pos + needle_len <= haystack_len) {
       size_t i = local_period + 1;
-      while (i < needle_len && needle[i] == haystack[i + pos]) {
-        i++;
-      }
+      while (i < needle_len && needle[i] == haystack[i + pos]) { i++; }
 
       if (i >= needle_len) {
         i = local_period;
-        while ((long)i >= 0 && needle[i] == haystack[pos + i]) {
-          i--;
-        }
+        while ((long)i >= 0 && needle[i] == haystack[pos + i]) { i--; }
 
         if ((long)i < 0) return haystack + pos;
         pos += period;

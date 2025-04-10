@@ -23,15 +23,11 @@ void task_cwd(void *_arg) {
   }
 
   struct session session;
-  while (mtx_lock(arg->sessions_mtx) != thrd_success) {
-    continue;
-  }
+  while (mtx_lock(arg->sessions_mtx) != thrd_success) { continue; }
 
   int err = table_get(arg->sessions, &arg->id, &session);
 
-  while (mtx_unlock(arg->sessions_mtx) != thrd_success) {
-    continue;
-  }
+  while (mtx_unlock(arg->sessions_mtx) != thrd_success) { continue; }
 
   if (!tp_critical_section_end()) {  // the thread will no longer be cancellable
     LOG(arg->logger, ERROR, "%s\n", "failed to end a critical section block");

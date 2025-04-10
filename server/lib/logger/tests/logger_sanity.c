@@ -40,9 +40,7 @@ int main(void) {
     assert(thrd_create(&threads[i], log_stuff, &args[i]) == thrd_success);
   }
 
-  for (size_t i = 0; i < amount; i++) {
-    assert(thrd_join(threads[i], NULL) == thrd_success);
-  }
+  for (size_t i = 0; i < amount; i++) { assert(thrd_join(threads[i], NULL) == thrd_success); }
 
   // logger_log(logger, INFO, "test end");
   LOG(logger, INFO, "%s", "test end\n");

@@ -138,7 +138,6 @@ static void tp_terminate_early_test(struct logger *restrict logger, int threads_
   }
 
   for (size_t i = 0; i < tasks_count; i++) {
-
     struct task_args_simple *args = malloc(sizeof *args);
     assert(args);
     *args = (struct task_args_simple){.logger = logger, .string = vec_at(&strings, i)};
@@ -175,7 +174,6 @@ static void tp_add_multiple_tasks_test(struct logger *restrict logger, size_t co
   }
 
   for (size_t i = 0; i < count; i++) {
-
     struct task_args_simple *args = malloc(sizeof *args);
     assert(args);
     *args = (struct task_args_simple){.logger = logger, .string = vec_at(&strings, i)};
@@ -274,9 +272,7 @@ static void tp_add_task_abort_then_add_another_test(struct logger *restrict logg
   nanosleep(&(struct timespec){.tv_sec = manager_delay}, &remaining);
 
   LOG(logger, INFO, "\n\tworker %ld (main) woken up trying to abort tasks\n", thrd_current());
-  for (size_t i = 0; i < threads_count; i++) {
-    assert(tp_abort_task(tp, i));
-  }
+  for (size_t i = 0; i < threads_count; i++) { assert(tp_abort_task(tp, i)); }
   LOG(logger, INFO, "\n\tworker %ld (main) woken up successfully aborted all tasks\n", thrd_current());
 
   // adding one more task without aborting to esure the thread pool still works

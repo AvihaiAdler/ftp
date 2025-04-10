@@ -1,4 +1,3 @@
-Language: Cpp
 BasedOnStyle: Google
 AccessModifierOffset: -1
 AlignAfterOpenBracket: Align
@@ -13,68 +12,44 @@ AllowAllParametersOfDeclarationOnNextLine: false
 AllowShortBlocksOnASingleLine: Always
 AllowShortCaseLabelsOnASingleLine: false
 AllowShortEnumsOnASingleLine: true
-AllowShortFunctionsOnASingleLine: None
+AllowShortFunctionsOnASingleLine: Empty
 AllowShortIfStatementsOnASingleLine: WithoutElse
-AllowShortLoopsOnASingleLine: false
-AllowShortLambdasOnASingleLine: Inline
-AlwaysBreakAfterReturnType: None
-AlwaysBreakTemplateDeclarations: Yes
+AllowShortLoopsOnASingleLine: true
+BreakAfterReturnType: Automatic
 BinPackArguments: false
 BinPackParameters: false
 BreakBeforeBraces: Custom
 BraceWrapping:
   AfterCaseLabel: false
-  AfterClass: false
   AfterStruct: false
   AfterControlStatement: Never
   AfterEnum: false
   AfterFunction: false
-  AfterNamespace: false
   AfterUnion: false
   AfterExternBlock: false
-  BeforeCatch: false
+  BeforeWhile: false
   BeforeElse: false
-  BeforeLambdaBody: false
   IndentBraces: false
   SplitEmptyFunction: false
-  SplitEmptyRecord: false
-  SplitEmptyNamespace: false
 BreakBeforeBinaryOperators: None
 BreakBeforeTernaryOperators: false
+IndentWidth: 2
 ColumnLimit: 120
-CompactNamespaces: false
 ContinuationIndentWidth: 2
-Cpp11BracedListStyle: true
-EmptyLineBeforeAccessModifier: LogicalBlock
-FixNamespaceComments: true
 IncludeBlocks: Preserve
 IndentCaseLabels: true
 IndentPPDirectives: None
-IndentWidth: 2
-KeepEmptyLinesAtTheStartOfBlocks: true
+KeepEmptyLines:
+  AtEndOfFile: true
+  AtStartOfBlock: false
+  AtStartOfFile: false
 MaxEmptyLinesToKeep: 1
-NamespaceIndentation: None
-ObjCSpaceAfterProperty: false
-ObjCSpaceBeforeProtocolList: true
-ReflowComments: false
-SpaceAfterCStyleCast: false
+ReflowComments: true
 SpaceAfterLogicalNot: false
-SpaceAfterTemplateKeyword: true
 SpaceBeforeAssignmentOperators: true
-SpaceBeforeCpp11BracedList: false
-SpaceBeforeCtorInitializerColon: true
-SpaceBeforeInheritanceColon: true
 SpaceBeforeParens: ControlStatements
-SpaceBeforeRangeBasedForLoopColon: true
 SpaceBeforeSquareBrackets: false
-SpaceInEmptyParentheses: false
 SpacesBeforeTrailingComments: 2
-SpacesInAngles: false
-SpacesInCStyleCastParentheses: false
-SpacesInContainerLiterals: false
-SpacesInParentheses: false
 SpacesInSquareBrackets: false
-Standard: c++11
 TabWidth: 2
 UseTab: Never
-ReflowComments: true

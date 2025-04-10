@@ -9,10 +9,8 @@
 
 #define SIG_NONE -1
 
-#define LOG(logger, level, fmt, ...)                                                           \
-  do {                                                                                         \
-    logger_log(logger, level, "in %s\t%s:%d " fmt, __func__, __FILE__, __LINE__, __VA_ARGS__); \
-  } while (0)
+#define LOG(logger, level, fmt, ...) \
+  do { logger_log(logger, level, "in %s\t%s:%d " fmt, __func__, __FILE__, __LINE__, __VA_ARGS__); } while (0)
 
 struct logger;
 

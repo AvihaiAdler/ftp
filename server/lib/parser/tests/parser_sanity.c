@@ -5,15 +5,11 @@
 #include "lexer.h"
 #include "parser.h"
 
-#define LOG(stream, fmt, ...)                                                       \
-  do {                                                                              \
-    fprintf(stream, "%s %s:%d\n\t" fmt, __FILE__, __func__, __LINE__, __VA_ARGS__); \
-  } while (0);
+#define LOG(stream, fmt, ...) \
+  do { fprintf(stream, "%s %s:%d\n\t" fmt, __FILE__, __func__, __LINE__, __VA_ARGS__); } while (0);
 
-#define LOG_STRIPPED(stream, fmt, ...)      \
-  do {                                      \
-    fprintf(stream, "\t" fmt, __VA_ARGS__); \
-  } while (0);
+#define LOG_STRIPPED(stream, fmt, ...) \
+  do { fprintf(stream, "\t" fmt, __VA_ARGS__); } while (0);
 
 static char const *cmd_type_name(enum command_type cmd) {
   switch (cmd) {

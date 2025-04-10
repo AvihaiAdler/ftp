@@ -97,18 +97,14 @@ void logger_log(struct logger *restrict logger, enum level level, char const *re
 
   va_list args;
   va_start(args, fmt);
-  while (mtx_lock(&logger->stream_mtx) != thrd_success) {
-    continue;
-  }
+  while (mtx_lock(&logger->stream_mtx) != thrd_success) { continue; }
 
   fprintf(logger->stream, "[%s] : [%s] ", time_buf, get_log_level(level));
   // not the best idea to have the user control the format string, but oh well
   vfprintf(logger->stream, fmt, args);
   fflush(logger->stream);
 
-  while (mtx_unlock(&logger->stream_mtx) != thrd_success) {
-    continue;
-  }
+  while (mtx_unlock(&logger->stream_mtx) != thrd_success) { continue; }
   va_end(args);
 
   if (logger->signal != SIG_NONE) {
