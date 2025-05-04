@@ -299,7 +299,7 @@ static struct command stor(struct list *tokens) {
   if (!parser_consume(tokens, TT_SPACE, NULL)) { goto stor_invalid; }
 
   struct ascii_str path;
-  if (!parser_consume(tokens, TT_STRING, &path)) { goto stor_cleanup; }
+  if (!parser_consume(tokens, TT_STRING, &path)) { goto stor_invalid; }
   if (!parser_consume(tokens, TT_CRLF, NULL)) { goto stor_cleanup; }
   if (!parser_consume(tokens, TT_EOF, NULL)) { goto stor_cleanup; }
 
