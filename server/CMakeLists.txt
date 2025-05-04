@@ -47,6 +47,7 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug")
   target_compile_options(ftpd
     PRIVATE
     -g
+    -Og
     -fsanitize=address,undefined
   )
   target_link_options(ftpd
