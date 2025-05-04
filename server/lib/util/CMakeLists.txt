@@ -28,12 +28,9 @@ target_include_directories(util
   PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
-find_library(threads
-  NAMES pthread
-  REQUIRED
-)
+find_package(Threads REQUIRED)
 
 target_link_libraries(util
   PRIVATE ds
-  PRIVATE ${threads}
+  PRIVATE Threads::Threads
 )

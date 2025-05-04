@@ -27,15 +27,12 @@ find_library(math
   REQUIRED
 )
 
-find_library(pthreads
-  NAMES pthread
-  REQUIRED
-)
+find_package(Threads REQUIRED)
 
 target_link_libraries(sqlite
   PRIVATE
   ${math}
-  ${pthreads}
+  Threads::Threads
 )
 
 target_include_directories(sqlite BEFORE
